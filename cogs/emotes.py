@@ -116,6 +116,19 @@ class Emotes:
             return
         self.set_scale(ctx.message.server, scale)
         await self.bot.say("Emote scale set to {}".format(scale))
+        
+    @emoteset.command(name="disable", pass_context=True)
+    async def _disable_emote(self, ctx, emote_name: str):
+    	"""Disables an emote"""
+    	server=ctx.message.server
+    	valid_emotes = self.available_emotes[server.id]
+    	for emote in valid_emotes:
+	        if emote_name == emote.get("name", ""):
+	        	valid_emotes.remove(emote)
+	        	await self.bot.say("'{}' has been deleted.".format(emote_name))
+	        	self.save_available_emotes()
+	        	return
+    	await self.bot.reply("That emote doesn't exist or is already disabled")
 
     def _write_image(self, chan_id, name, image_data):
         # Assume channel folder already exists
@@ -181,7 +194,7 @@ class Emotes:
             await self.bot.say(
                 "This server already has '{}'".format(emote_name))
             return
-        await self.bot.say("Retrieving emotes from '{}'.".format(emote_name) +
+        await self.bot.say("Retrieving '{}' and other twitch channel emotes.".format(emote_name) +
                            " Please wait a moment.")
         for emote in self.emote_list:
             if emote_name == emote.get("regex", ""):
