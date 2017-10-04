@@ -79,7 +79,7 @@ class Heist:
         await self.bot.say("Available Themes:```\n{}```".format('\n'.join(themes)))
 
     @heist.command(name="reset", pass_context=True)
-    @checks.admin_or_permissions(manage_server=True)
+    @checks.mod_or_permissions(manage_server=True)
     async def _reset_heist(self, ctx):
         """Resets heist in case it hangs"""
         server = ctx.message.server
