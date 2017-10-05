@@ -1,6 +1,8 @@
 import os
 import discord
-from .utils import checks
+from __main__ import send_cmd_help #For help
+from .utils import checks # For permissions
+from .utils.paginator import Pages # For making pages, requires the util!
 import copy
 from discord.ext import commands
 from .utils.dataIO import dataIO
@@ -15,9 +17,16 @@ class SmartReact:
         self.settings_path = "data/smartreact/settings.json"
         self.settings = dataIO.load_json(self.settings_path)
 
-    @commands.command(name="addreact", no_pm=True, pass_context=True)
+    @commands.group(name="react", pass_context=True, no_pm=True)
     @checks.mod_or_permissions(manage_messages=True)
-    async def addreact(self, ctx, word, emoji):
+    async def reacts(self, ctx):
+        """Smart Reacts, modified."""
+        if ctx.invoked_subcommand is None:
+            await send_cmd_help(ctx)
+            
+    @reacts.command(name="add", no_pm=True, pass_context=True)
+    @checks.mod_or_permissions(manage_messages=True)
+    async def add(self, ctx, word, emoji):
         """Add an auto reaction to a word"""
         server = ctx.message.server
         message = ctx.message
@@ -25,15 +34,35 @@ class SmartReact:
         emoji = self.fix_custom_emoji(emoji)
         await self.create_smart_reaction(server, word, emoji, message)
 
-    @commands.command(name="delreact", no_pm=True, pass_context=True)
+    @reacts.command(name="del", no_pm=True, pass_context=True)
     @checks.mod_or_permissions(manage_messages=True)
-    async def delreact(self, ctx, word, emoji):
+    async def delete(self, ctx, word, emoji):
         """Delete an auto reaction to a word"""
         server = ctx.message.server
         message = ctx.message
         self.load_settings(server.id)
         emoji = self.fix_custom_emoji(emoji)
         await self.remove_smart_reaction(server, word, emoji, message)
+    
+    @reacts.command(name="list", no_pm=True, pass_context=True)
+    @checks.mod_or_permissions(manage_messages=True)
+    async def list(self, ctx):
+        """List the auto reaction emojis and triggers"""
+        guild_id = ctx.message.server.id
+        guild_name = ctx.message.server.name
+        user = ctx.message.author
+        
+        display = []
+        for emoji, trigger in self.settings[guild_id].items():
+            text = emoji+": "
+            for n in range(0, len(trigger)):
+                text += trigger[n]+" "
+            display.append(text)
+            
+        p = Pages(self.bot,message=ctx.message,entries=display)
+        p.embed.title = "Smart React emojis for: **{}**".format(guild_name)
+        p.embed.colour = discord.Colour.red()
+        await p.paginate()
 
     def load_settings(self, server_id):
         self.settings = dataIO.load_json(self.settings_path)
@@ -88,6 +117,8 @@ class SmartReact:
             if str(emoji) in self.settings[server.id]:
                 if word.lower() in self.settings[server.id][str(emoji)]:
                     self.settings[server.id][str(emoji)].remove(word.lower())
+                    if len(self.settings[server.id][str(emoji)]) == 0:
+                        self.settings[server.id].pop(str(emoji))
                     await self.bot.say("Removed this smart reaction.")
                 else:
                     await self.bot.say("That emoji is not used as a reaction "
