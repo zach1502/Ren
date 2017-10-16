@@ -18,7 +18,7 @@ class SmartReact:
         self.settings = dataIO.load_json(self.settings_path)
 
     @commands.group(name="react", pass_context=True, no_pm=True)
-    @checks.mod_or_permissions(manage_messages=True)
+    # @checks.mod_or_permissions(manage_messages=True)
     async def reacts(self, ctx):
         """Smart Reacts, modified."""
         if ctx.invoked_subcommand is None:
@@ -45,7 +45,7 @@ class SmartReact:
         await self.remove_smart_reaction(server, word, emoji, message)
     
     @reacts.command(name="list", no_pm=True, pass_context=True)
-    @checks.mod_or_permissions(manage_messages=True)
+    # @checks.mod_or_permissions(manage_messages=True)
     async def list(self, ctx):
         """List the auto reaction emojis and triggers"""
         guild_id = ctx.message.server.id
