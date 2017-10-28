@@ -23,7 +23,7 @@ class CustomCommands:
             await self.bot.send_cmd_help(ctx)
 
     @customcom.command(name="add", pass_context=True)
-    @checks.mod_or_permissions(administrator=True)
+    @checks.sensei_or_mod_or_permissions(administrator=True)
     async def cc_add(self, ctx, command : str, *, text):
         """Adds a custom command
 
