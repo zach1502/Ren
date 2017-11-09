@@ -256,7 +256,7 @@ class Tags:
             await self.bot.say('Tag ' + str(error))
 
     @tag.command(pass_context=True, no_pm=True)
-    @checks.admin_or_permissions(administrator=True)
+    @checks.mod_or_permissions(administrator=True)
     async def alias(self, ctx, new_name: str, *, old_name: str):
         """Creates an alias for a pre-existing tag.
         You own the tag alias. However, when the original
