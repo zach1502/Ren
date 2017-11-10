@@ -153,7 +153,8 @@ class SmartReact:
                     try:
                         await self.bot.add_reaction(message, fixed_emoji)
                     except discord.errors.Forbidden as e:
-                        print("SmartReact Error: "+e)
+                        print("SmartReact Error:")
+                        print(e)
 
 
 def check_folders():
