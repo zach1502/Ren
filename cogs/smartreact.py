@@ -150,7 +150,10 @@ class SmartReact:
             if set(w.lower() for w in react_dict[emoji]).intersection(words):
                 fixed_emoji = self.fix_custom_emoji(emoji)
                 if fixed_emoji is not None:
-                    await self.bot.add_reaction(message, fixed_emoji)
+                    try:
+                        await self.bot.add_reaction(message, fixed_emoji)
+                    except discord.errors.Forbidden as e:
+                        print("SmartReact Error: "+e)
 
 
 def check_folders():
