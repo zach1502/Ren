@@ -345,6 +345,12 @@ class Punish:
 
         if not quiet:
             await self.bot.say(msg)
+            msg = "You have been punished by {}".format(ctx.message.author.name)
+            if reason is None:
+                msg += "."
+            else:    # There is a reason
+                msg += " for the following reason:\n{}".format(reason)
+            await self.bot.send_message(member, msg)
 
         return True
 
@@ -373,7 +379,7 @@ class Punish:
             self._unpunish_data(member)
             await self.bot.remove_roles(member, role)
 
-            msg = 'Your punishiment in %s has ended.' % member.server.name
+            msg = 'Your punishment in %s has ended.' % member.server.name
             if reason:
                 msg += "\nReason was: %s" % reason
 
