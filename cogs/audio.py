@@ -330,7 +330,7 @@ class Audio:
         if self._old_game is False:
             self._old_game = list(self.bot.servers)[0].me.game
         status = list(self.bot.servers)[0].me.status
-        game = discord.Game(name=song.title)
+        game = discord.Game(name=song.title, type=2)
         await self.bot.change_presence(status=status, game=game)
         log.debug('Bot status changed to song title: ' + song.title)
 
@@ -1602,12 +1602,6 @@ class Audio:
         else:
             await self.bot.say("Done.")
 
-    @playlist.command(pass_context=True, no_pm=True, name="extend")
-    async def playlist_extend(self, ctx, playlist_url_or_name):
-        """Extends a playlist with a playlist link"""
-        # Need better wording ^
-        await self.bot.say("Not implemented yet.")
-
     @playlist.command(pass_context=True, no_pm=True, name="list")
     async def playlist_list(self, ctx):
         """Lists all available playlists"""
@@ -2177,7 +2171,7 @@ class Audio:
                     return
                 if repeat and last_song:
                     queued_last_song = QueuedSong(last_song.webpage_url, last_song_channel)
-                    queue.append(last_song.webpage_url)
+                    queue.append(queued_last_song)
             else:
                 song = None
             self._set_queue_nowplaying(server, song, channel)
