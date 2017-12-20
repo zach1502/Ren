@@ -286,9 +286,9 @@ class Punish:
         server = ctx.message.server
         note = ''
 
-        if ctx.message.author.top_role <= member.top_role:
-            await self.bot.say('Permission denied.')
-            return
+        #if ctx.message.author.top_role <= member.top_role:
+        #    await self.bot.say('Permission denied.')
+        #    return
 
         if duration and duration.lower() in ['forever', 'inf', 'infinite']:
             duration = None
