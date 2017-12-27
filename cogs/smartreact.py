@@ -44,7 +44,7 @@ class SmartReact:
         self.load_settings(server.id)
         emoji = self.fix_custom_emoji(emoji)
         await self.remove_smart_reaction(server, word, emoji, message)
-        
+
     @reacts.command(name="reload", no_pm=True, pass_context=True)
     @checks.mod_or_permissions(manage_messages=True)
     async def reload(self, ctx):
@@ -118,7 +118,7 @@ class SmartReact:
                             print("SmartReact Reload Trigger Words Error:")
                             print(e)
                             print(w)
-                    
+
                     # Update to the new emoji string
                     self.settings[server.id][str(server.emojis[loc])] = self.settings[server.id][emoji]
                     del self.settings[server.id][emoji]
