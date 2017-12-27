@@ -4,6 +4,7 @@ from __main__ import send_cmd_help #For help
 from .utils import checks # For permissions
 from .utils.paginator import Pages # For making pages, requires the util!
 import copy
+import re
 from discord.ext import commands
 from .utils.dataIO import dataIO
 
@@ -145,7 +146,7 @@ class SmartReact:
         if server.id not in self.settings:
             return
         react_dict = copy.deepcopy(self.settings[server.id])
-        words = message.content.lower().split()
+        words = re.split('\W+|_', message.content.lower())
         for emoji in react_dict:
             if set(w.lower() for w in react_dict[emoji]).intersection(words):
                 fixed_emoji = self.fix_custom_emoji(emoji)
