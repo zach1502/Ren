@@ -24,7 +24,7 @@ class SmartReact:
         """Smart Reacts, modified."""
         if ctx.invoked_subcommand is None:
             await send_cmd_help(ctx)
-            
+
     @reacts.command(name="add", no_pm=True, pass_context=True)
     @checks.mod_or_permissions(manage_messages=True)
     async def add(self, ctx, word, emoji):
@@ -44,7 +44,14 @@ class SmartReact:
         self.load_settings(server.id)
         emoji = self.fix_custom_emoji(emoji)
         await self.remove_smart_reaction(server, word, emoji, message)
-    
+        
+    @reacts.command(name="reload", no_pm=True, pass_context=True)
+    @checks.mod_or_permissions(manage_messages=True)
+    async def reload(self, ctx):
+        """Reloads auto reactions with new emojis by name"""
+        server = ctx.message.server
+        await self.update_emojis(server)
+
     @reacts.command(name="list", no_pm=True, pass_context=True)
     # @checks.mod_or_permissions(manage_messages=True)
     async def list(self, ctx):
@@ -52,14 +59,14 @@ class SmartReact:
         guild_id = ctx.message.server.id
         guild_name = ctx.message.server.name
         user = ctx.message.author
-        
+
         display = []
         for emoji, trigger in self.settings[guild_id].items():
             text = emoji+": "
             for n in range(0, len(trigger)):
                 text += trigger[n]+" "
             display.append(text)
-            
+
         p = Pages(self.bot,message=ctx.message,entries=display)
         p.embed.title = "Smart React emojis for: **{}**".format(guild_name)
         p.embed.colour = discord.Colour.red()
@@ -92,6 +99,37 @@ class SmartReact:
             if msg.content.startswith(p):
                 return True
         return False
+
+    async def update_emojis(self, server):
+        for emoji in self.settings[server.id].keys():
+            try:
+                names_list = [x.name for x in server.emojis]
+                # Looks for the location of the emoji name in server's list
+                loc = names_list.index(discord.Emoji(emoji).name)
+                if emoji != str(server.emojis[loc]):
+                    # Update any emojis in the trigger words
+                    for idx, w in enumerate(self.settings[server.id][emoji]):
+                        try:
+                            if ':' in w: # Hackishly makes sure it's a custom emoji
+                                locv = names_list.index(w.split(':')[1])
+                                if w != str(server.emojis[locv]):
+                                    self.settings[server.id][emoji][idx] = str(server.emojis[locv])
+                        except Exception as e:
+                            print("SmartReact Reload Trigger Words Error:")
+                            print(e)
+                            print(w)
+                    
+                    # Update to the new emoji string
+                    self.settings[server.id][str(server.emojis[loc])] = self.settings[server.id][emoji]
+                    del self.settings[server.id][emoji]
+            except ValueError as e:
+                print("SmartReact Reload Error:")
+                print(e)
+                print(emoji)
+            except Exception as e:
+                print("SmartReact Reload Error:")
+                print(e)
+                print(emoji)
 
     async def create_smart_reaction(self, server, word, emoji, message):
         try:
