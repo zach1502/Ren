@@ -104,8 +104,11 @@ class SmartReact:
         for emoji in self.settings[server.id].keys():
             try:
                 names_list = [x.name for x in server.emojis]
+
+                if not ':' in emoji:
+                    continue
                 # Looks for the location of the emoji name in server's list
-                loc = names_list.index(discord.Emoji(emoji).name)
+                loc = names_list.index(emoji.split(':')[1])
                 if emoji != str(server.emojis[loc]):
                     # Update any emojis in the trigger words
                     for idx, w in enumerate(self.settings[server.id][emoji]):
