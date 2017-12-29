@@ -110,26 +110,27 @@ class SmartReact:
             for emoji in self.settings[server.id].keys():
                 names_list = [x.name for x in server.emojis]
 
+                # Update any emojis in the trigger words
+                for idx, w in enumerate(self.settings[server.id][emoji]):
+                    if ':' in w: # Hackishly makes sure it's a custom emoji
+                        try:
+                            locv = names_list.index(w.split(':')[1])
+                        except ValueError:
+                            continue # Don't care if doesn't exist
+                        if w != str(server.emojis[locv]):
+                            settings[emoji][idx] = str(server.emojis[locv])
+
                 if not ':' in emoji:
                     continue
                 # Looks for the location of the emoji name in server's list
-                loc = names_list.index(emoji.split(':')[1])
+                try:
+                    loc = names_list.index(emoji.split(':')[1])
+                except ValueError:
+                    continue # Don't care if doesn't exist
                 if emoji != str(server.emojis[loc]):
-                    # Update any emojis in the trigger words
-                    for idx, w in enumerate(self.settings[server.id][emoji]):
-                        try:
-                            if ':' in w: # Hackishly makes sure it's a custom emoji
-                                locv = names_list.index(w.split(':')[1])
-                                if w != str(server.emojis[locv]):
-                                    settings[emoji][idx] = str(server.emojis[locv])
-                        except Exception as e:
-                            print("SmartReact Reload Trigger Words Error:")
-                            print(e)
-                            print(w)
-                            raise
 
                     # Update to the new emoji string
-                    settings[str(server.emojis[loc])] = self.settings[server.id][emoji]
+                    settings[str(server.emojis[loc])] = settings[emoji]
                     del settings[emoji]
             self.settings[server.id] = settings
 
@@ -186,6 +187,12 @@ class SmartReact:
         except (discord.errors.HTTPException, discord.errors.InvalidArgument):
             await self.bot.say("That's not an emoji I recognize.")
 
+    async def emojis_update_listener(self, before, after):
+        try:
+            await self.update_emojis(after[0].server)
+        except Exception:
+            pass
+
     # Special thanks to irdumb#1229 on discord for helping me make this method
     # "more Pythonic"
     async def msg_listener(self, message):
@@ -199,7 +206,7 @@ class SmartReact:
         if server.id not in self.settings:
             return
         react_dict = copy.deepcopy(self.settings[server.id])
-        words = re.split('((?=\W+)(?=[^:\\<>]).)|', message.content.lower())
+        words = re.split('((?=\W+)(?=[^:\\<>]).)|_', message.content.lower())
         for emoji in react_dict:
             if set(w.lower() for w in react_dict[emoji]).intersection(words):
                 fixed_emoji = self.fix_custom_emoji(emoji)
@@ -231,3 +238,4 @@ def setup(bot):
     n = SmartReact(bot)
     bot.add_cog(n)
     bot.add_listener(n.msg_listener, "on_message")
+    bot.add_listener(n.emojis_update_listener, "on_server_emojis_update")
