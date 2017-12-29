@@ -50,7 +50,11 @@ class SmartReact:
     async def reload(self, ctx):
         """Reloads auto reactions with new emojis by name"""
         server = ctx.message.server
-        await self.update_emojis(server)
+        try:
+            code = await self.update_emojis(server)
+        except Exception:
+            await self.bot.say("Error reloading emojis.")
+        await self.bot.say("Reload success.")
 
     @reacts.command(name="list", no_pm=True, pass_context=True)
     # @checks.mod_or_permissions(manage_messages=True)
@@ -101,8 +105,9 @@ class SmartReact:
         return False
 
     async def update_emojis(self, server):
-        for emoji in self.settings[server.id].keys():
-            try:
+        try:
+            settings = copy.deepcopy(self.settings[server.id])
+            for emoji in self.settings[server.id].keys():
                 names_list = [x.name for x in server.emojis]
 
                 if not ':' in emoji:
@@ -116,23 +121,30 @@ class SmartReact:
                             if ':' in w: # Hackishly makes sure it's a custom emoji
                                 locv = names_list.index(w.split(':')[1])
                                 if w != str(server.emojis[locv]):
-                                    self.settings[server.id][emoji][idx] = str(server.emojis[locv])
+                                    settings[emoji][idx] = str(server.emojis[locv])
                         except Exception as e:
                             print("SmartReact Reload Trigger Words Error:")
                             print(e)
                             print(w)
+                            raise
 
                     # Update to the new emoji string
-                    self.settings[server.id][str(server.emojis[loc])] = self.settings[server.id][emoji]
-                    del self.settings[server.id][emoji]
-            except ValueError as e:
-                print("SmartReact Reload Error:")
-                print(e)
-                print(emoji)
-            except Exception as e:
-                print("SmartReact Reload Error:")
-                print(e)
-                print(emoji)
+                    settings[str(server.emojis[loc])] = self.settings[server.id][emoji]
+                    del settings[emoji]
+            self.settings[server.id] = settings
+
+            dataIO.save_json(self.settings_path, self.settings)
+
+        except ValueError as e:
+            print("SmartReact Reload Error:")
+            print(e)
+            print(emoji)
+            raise
+        except Exception as e:
+            print("SmartReact Reload Error:")
+            print(e)
+            print(emoji)
+            raise
 
     async def create_smart_reaction(self, server, word, emoji, message):
         try:
