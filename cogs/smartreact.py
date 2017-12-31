@@ -5,11 +5,12 @@ from .utils import checks # For permissions
 from .utils.paginator import Pages # For making pages, requires the util!
 import copy
 import re
+import asyncio
 from discord.ext import commands
 from .utils.dataIO import dataIO
 
-
 class SmartReact:
+    UPDATE_WAIT_DUR = 1200 # Autoupdate waits this much before updating
 
     """Create automatic reactions when trigger words are typed in chat"""
 
@@ -17,6 +18,7 @@ class SmartReact:
         self.bot = bot
         self.settings_path = "data/smartreact/settings.json"
         self.settings = dataIO.load_json(self.settings_path)
+        self.update_wait = 0 # boolean to check if already waiting
 
     @commands.group(name="react", pass_context=True, no_pm=True)
     # @checks.mod_or_permissions(manage_messages=True)
@@ -52,7 +54,9 @@ class SmartReact:
         server = ctx.message.server
         try:
             code = await self.update_emojis(server)
-        except Exception:
+        except Exception as e:
+            print("SmartReact error: ")
+            print(e)
             await self.bot.say("Error reloading emojis.")
         await self.bot.say("Reload success.")
 
@@ -137,14 +141,8 @@ class SmartReact:
             dataIO.save_json(self.settings_path, self.settings)
 
         except ValueError as e:
-            print("SmartReact Reload Error:")
-            print(e)
-            print(emoji)
             raise
         except Exception as e:
-            print("SmartReact Reload Error:")
-            print(e)
-            print(emoji)
             raise
 
     async def create_smart_reaction(self, server, word, emoji, message):
@@ -188,10 +186,21 @@ class SmartReact:
             await self.bot.say("That's not an emoji I recognize.")
 
     async def emojis_update_listener(self, before, after):
-        try:
-            await self.update_emojis(after[0].server)
-        except Exception:
-            pass
+        if self.update_wait != 1:
+            try:
+                self.update_wait = 1
+                # Requires the server to have at least one emoji
+                server = after[0].server
+                # Wait for some time for further changes before updating
+                print("SmartReact update wait started for Server " + str(server.name))
+                await asyncio.sleep(self.UPDATE_WAIT_DUR)
+                await self.update_emojis(server)
+                print("SmartReact update successful for Server " + str(server.name))
+            except Exception as e:
+                print("SmartReact error: ")
+                print(e)
+                pass
+            self.update_wait = 0
 
     # Special thanks to irdumb#1229 on discord for helping me make this method
     # "more Pythonic"
