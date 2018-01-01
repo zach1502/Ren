@@ -4,11 +4,13 @@ from __main__ import send_cmd_help #For help
 from .utils import checks # For permissions
 from .utils.paginator import Pages # For making pages, requires the util!
 import copy
+import re
+import asyncio
 from discord.ext import commands
 from .utils.dataIO import dataIO
 
-
 class SmartReact:
+    UPDATE_WAIT_DUR = 1200 # Autoupdate waits this much before updating
 
     """Create automatic reactions when trigger words are typed in chat"""
 
@@ -16,6 +18,7 @@ class SmartReact:
         self.bot = bot
         self.settings_path = "data/smartreact/settings.json"
         self.settings = dataIO.load_json(self.settings_path)
+        self.update_wait = 0 # boolean to check if already waiting
 
     @commands.group(name="react", pass_context=True, no_pm=True)
     # @checks.mod_or_permissions(manage_messages=True)
@@ -23,7 +26,7 @@ class SmartReact:
         """Smart Reacts, modified."""
         if ctx.invoked_subcommand is None:
             await send_cmd_help(ctx)
-            
+
     @reacts.command(name="add", no_pm=True, pass_context=True)
     @checks.mod_or_permissions(manage_messages=True)
     async def add(self, ctx, word, emoji):
@@ -43,7 +46,20 @@ class SmartReact:
         self.load_settings(server.id)
         emoji = self.fix_custom_emoji(emoji)
         await self.remove_smart_reaction(server, word, emoji, message)
-    
+
+    @reacts.command(name="reload", no_pm=True, pass_context=True)
+    @checks.mod_or_permissions(manage_messages=True)
+    async def reload(self, ctx):
+        """Reloads auto reactions with new emojis by name"""
+        server = ctx.message.server
+        try:
+            code = await self.update_emojis(server)
+        except Exception as e:
+            print("SmartReact error: ")
+            print(e)
+            await self.bot.say("Error reloading emojis.")
+        await self.bot.say("Reload success.")
+
     @reacts.command(name="list", no_pm=True, pass_context=True)
     # @checks.mod_or_permissions(manage_messages=True)
     async def list(self, ctx):
@@ -51,14 +67,14 @@ class SmartReact:
         guild_id = ctx.message.server.id
         guild_name = ctx.message.server.name
         user = ctx.message.author
-        
+
         display = []
         for emoji, trigger in self.settings[guild_id].items():
             text = emoji+": "
             for n in range(0, len(trigger)):
                 text += trigger[n]+" "
             display.append(text)
-            
+
         p = Pages(self.bot,message=ctx.message,entries=display)
         p.embed.title = "Smart React emojis for: **{}**".format(guild_name)
         p.embed.colour = discord.Colour.red()
@@ -91,6 +107,43 @@ class SmartReact:
             if msg.content.startswith(p):
                 return True
         return False
+
+    async def update_emojis(self, server):
+        try:
+            settings = copy.deepcopy(self.settings[server.id])
+            for emoji in self.settings[server.id].keys():
+                names_list = [x.name for x in server.emojis]
+
+                # Update any emojis in the trigger words
+                for idx, w in enumerate(self.settings[server.id][emoji]):
+                    if ':' in w: # Hackishly makes sure it's a custom emoji
+                        try:
+                            locv = names_list.index(w.split(':')[1])
+                        except ValueError:
+                            continue # Don't care if doesn't exist
+                        if w != str(server.emojis[locv]):
+                            settings[emoji][idx] = str(server.emojis[locv])
+
+                if not ':' in emoji:
+                    continue
+                # Looks for the location of the emoji name in server's list
+                try:
+                    loc = names_list.index(emoji.split(':')[1])
+                except ValueError:
+                    continue # Don't care if doesn't exist
+                if emoji != str(server.emojis[loc]):
+
+                    # Update to the new emoji string
+                    settings[str(server.emojis[loc])] = settings[emoji]
+                    del settings[emoji]
+            self.settings[server.id] = settings
+
+            dataIO.save_json(self.settings_path, self.settings)
+
+        except ValueError as e:
+            raise
+        except Exception as e:
+            raise
 
     async def create_smart_reaction(self, server, word, emoji, message):
         try:
@@ -132,6 +185,23 @@ class SmartReact:
         except (discord.errors.HTTPException, discord.errors.InvalidArgument):
             await self.bot.say("That's not an emoji I recognize.")
 
+    async def emojis_update_listener(self, before, after):
+        if self.update_wait != 1:
+            try:
+                self.update_wait = 1
+                # Requires the server to have at least one emoji
+                server = after[0].server
+                # Wait for some time for further changes before updating
+                print("SmartReact update wait started for Server " + str(server.name))
+                await asyncio.sleep(self.UPDATE_WAIT_DUR)
+                await self.update_emojis(server)
+                print("SmartReact update successful for Server " + str(server.name))
+            except Exception as e:
+                print("SmartReact error: ")
+                print(e)
+                pass
+            self.update_wait = 0
+
     # Special thanks to irdumb#1229 on discord for helping me make this method
     # "more Pythonic"
     async def msg_listener(self, message):
@@ -145,7 +215,7 @@ class SmartReact:
         if server.id not in self.settings:
             return
         react_dict = copy.deepcopy(self.settings[server.id])
-        words = message.content.lower().split()
+        words = re.split('((?=\W+)(?=[^:\\<>]).)|_', message.content.lower())
         for emoji in react_dict:
             if set(w.lower() for w in react_dict[emoji]).intersection(words):
                 fixed_emoji = self.fix_custom_emoji(emoji)
@@ -177,3 +247,4 @@ def setup(bot):
     n = SmartReact(bot)
     bot.add_cog(n)
     bot.add_listener(n.msg_listener, "on_message")
+    bot.add_listener(n.emojis_update_listener, "on_server_emojis_update")
