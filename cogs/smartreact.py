@@ -215,9 +215,12 @@ class SmartReact:
         if server.id not in self.settings:
             return
         react_dict = copy.deepcopy(self.settings[server.id])
-        words = re.split('((?=\W+)(?=[^:\\<>]).)|_', message.content.lower())
+
+        # For matching non-word characters and emojis
+        end_sym = r'([\W:\\<>._]+|$)'
+        st_sym = r'([\W:\\<>._]+|^)'
         for emoji in react_dict:
-            if set(w.lower() for w in react_dict[emoji]).intersection(words):
+            if any(re.search(st_sym + w + end_sym, message.content, re.IGNORECASE) for w in react_dict[emoji]):
                 fixed_emoji = self.fix_custom_emoji(emoji)
                 if fixed_emoji is not None:
                     try:
