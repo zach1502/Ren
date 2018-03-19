@@ -34,6 +34,10 @@ class Heartbeat:
                 print("Error in sleeping.")                        
                 raise e
 
+    @commands.command(name="heartbeat", pass_context=False, no_pm=True)
+    async def _check(self):
+        await self.bot.say("**In-house** is responding.")
+
 def setup(bot):
     #check_filesystem()
     hb_object = Heartbeat(bot)
