@@ -397,7 +397,7 @@ class Owner:
                 "\"Change Nickname\" permission.")
 
     @_set.command(pass_context=True)
-    @checks.is_owner()
+    @checks.mod_or_permissions()
     async def game(self, ctx, *, game=None):
         """Sets Red's playing status
 
@@ -479,7 +479,7 @@ class Owner:
         await self.bot.say("Done.")
 
     @_set.command()
-    @checks.is_owner()
+    @checks.mod_or_permissions()
     async def avatar(self, url):
         """Sets Red's avatar"""
         try:
