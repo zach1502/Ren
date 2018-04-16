@@ -192,7 +192,7 @@ class Tags:
             raise RuntimeError('Tag name is a maximum of 100 characters.')
 
     @tag.command(pass_context=True, aliases=['add'])
-    @checks.mod_or_permissions(administrator=True)
+    @checks.mod_or_permissions(manage_messages=True)
     async def create(self, ctx, name : str, *, content : str):
         """Creates a new tag owned by you.
         If you create a tag via private message then the tag is a generic
@@ -387,7 +387,7 @@ class Tags:
         await self.bot.say(embed=e,content="")
 
     @tag.command(pass_context=True)
-    @checks.mod_or_permissions(administrator=True)
+    @checks.mod_or_permissions(manage_messages=True)
     async def edit(self, ctx, name : str, *, content : str):
         """Modifies an existing tag that you own.
         This command completely replaces the original text. If you edit
@@ -406,7 +406,15 @@ class Tags:
         if isinstance(tag, TagAlias):
             return await self.bot.say('Cannot edit tag aliases. Remake it if you want to re-point it.')
 
-        if tag.owner_id != ctx.message.author.id:
+        # Get admin and mod roles.
+        adminRoleName = self.bot.settings.get_server_admin(ctx.message.server)
+        modRoleName = self.bot.settings.get_server_mod(ctx.message.server)
+
+        adminRole = discord.utils.get(ctx.message.server.roles, name=adminRoleName)
+        modRole = discord.utils.get(ctx.message.server.roles, name=modRoleName) 
+        
+        # Check and see if the user is not the tag owner, or is not a mod, or is not an admin.
+        if tag.owner_id != ctx.message.author.id and adminRole not in ctx.message.author.roles and modRole not in ctx.message.author.roles:
             await self.bot.say('Only the tag owner can edit this tag.')
             return
 
@@ -416,7 +424,7 @@ class Tags:
         await self.bot.say('Tag successfully edited.')
 
     @tag.command(pass_context=True, aliases=['delete'])
-    @checks.mod_or_permissions(administrator=True)
+    @checks.mod_or_permissions(manage_messages=True)
     async def remove(self, ctx, *, name : str):
         """Removes a tag that you own.
         The tag owner can always delete their own tags. If someone requests
@@ -439,7 +447,15 @@ class Tags:
 
         can_delete = can_delete or tag.owner_id == ctx.message.author.id
 
-        if not can_delete:
+        # Get admin and mod roles.
+        adminRoleName = self.bot.settings.get_server_admin(ctx.message.server)
+        modRoleName = self.bot.settings.get_server_mod(ctx.message.server)
+
+        adminRole = discord.utils.get(ctx.message.server.roles, name=adminRoleName)
+        modRole = discord.utils.get(ctx.message.server.roles, name=modRoleName) 
+        
+        # Check and see if the user is not the tag owner, or is not a mod, or is not an admin.
+        if not can_delete and adminRole not in ctx.message.author.roles and modRole not in ctx.message.author.roles:
             await self.bot.say('You do not have permissions to delete this tag.')
             return
 
