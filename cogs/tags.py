@@ -218,6 +218,9 @@ class Tags:
 
         await self.config.put(location, db)
         await self.bot.say('Tag "{}" successfully created.'.format(name))
+        
+        aliasCog = self.bot.get_cog('Alias')
+        await aliasCog.add_alias(ctx.message.server, lookup, "tag {}".format(lookup))
 
     @create.error
     async def create_error(self, error, ctx):
@@ -249,6 +252,9 @@ class Tags:
                              created_at=datetime.datetime.utcnow().timestamp())
         await self.config.put('generic', db)
         await self.bot.say('Tag "{}" successfully created.'.format(name))
+        
+        aliasCog = self.bot.get_cog('Alias')
+        await aliasCog.add_alias(ctx.message.server, name, "tag {}".format(name))
 
     @generic.error
     async def generic_error(self, error, ctx):
@@ -345,6 +351,9 @@ class Tags:
                              created_at=datetime.datetime.utcnow().timestamp())
         await self.config.put(location, db)
         await self.bot.say('Cool. I\'ve made your {0.content} tag.'.format(name))
+        
+        aliasCog = self.bot.get_cog('Alias')
+        await aliasCog.add_alias(ctx.message.server, lookup, "tag {}".format(lookup))
 
     @make.error
     async def tag_make_error(self, error, ctx):
@@ -479,6 +488,11 @@ class Tags:
 
         await self.config.put(location, db)
         await self.bot.say(msg)
+        
+        aliasCog = self.bot.get_cog('Alias')
+        await aliasCog.del_alias(ctx.message.server, lookup)
+        
+        
 
     @tag.command(pass_context=True, aliases=['owner'])
     async def info(self, ctx, *, name : str):

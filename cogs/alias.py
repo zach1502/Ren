@@ -21,6 +21,18 @@ class Alias:
         if ctx.invoked_subcommand is None:
             await send_cmd_help(ctx)
 
+    async def add_alias(self, server, command, to_execute):
+        """
+        A function to add alias (with the ability from another cog).
+        """
+        # if command not in self.bot.commands:
+        self.aliases[server.id][command] = to_execute
+        dataIO.save_json(self.file_path, self.aliases)
+        await self.bot.say("Alias '{}' added.".format(command))
+        # else:
+        #    await self.bot.say("Cannot add '{}' because it's a real bot "
+        #                       "command.".format(command))
+        
     @alias.command(name="add", pass_context=True, no_pm=True)
     @checks.mod_or_permissions(manage_server=True)
     async def _add_alias(self, ctx, command, *, to_execute):
@@ -43,13 +55,8 @@ class Alias:
             to_execute = to_execute[len(prefix):]
         if server.id not in self.aliases:
             self.aliases[server.id] = {}
-        if command not in self.bot.commands:
-            self.aliases[server.id][command] = to_execute
-            dataIO.save_json(self.file_path, self.aliases)
-            await self.bot.say("Alias '{}' added.".format(command))
-        else:
-            await self.bot.say("Cannot add '{}' because it's a real bot "
-                               "command.".format(command))
+        
+        await self.add_alias(server, command, to_execute)
 
     @alias.command(name="help", pass_context=True, no_pm=True)
     async def _help_alias(self, ctx, command):
@@ -79,17 +86,24 @@ class Alias:
                 await self.bot.say(box(server_aliases[command]))
             else:
                 await self.bot.say("That alias doesn't exist.")
-
+    
+    async def del_alias(self, server, command):
+        """
+        A function to remove alias (with the ability to do so from another cog).
+        """
+        if server.id in self.aliases:
+            self.aliases[server.id].pop(command, None)
+            dataIO.save_json(self.file_path, self.aliases)
+        await self.bot.say("Alias '{}' deleted.".format(command))
+        
     @alias.command(name="del", pass_context=True, no_pm=True)
     @checks.mod_or_permissions(manage_server=True)
     async def _del_alias(self, ctx, command):
         """Deletes an alias"""
         command = command.lower()
         server = ctx.message.server
-        if server.id in self.aliases:
-            self.aliases[server.id].pop(command, None)
-            dataIO.save_json(self.file_path, self.aliases)
-        await self.bot.say("Alias '{}' deleted.".format(command))
+        await self.del_alias(server, command)
+    
 
     @alias.command(name="list", pass_context=True, no_pm=True)
     async def _alias_list(self, ctx):
