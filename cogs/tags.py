@@ -191,7 +191,7 @@ class Tags:
         if len(lookup) > 100:
             raise RuntimeError('Tag name is a maximum of 100 characters.')
 
-    @tag.command(pass_context=True, aliases=['add'])
+    @tag.command(pass_context=True, aliases=['add'], no_pm=True)
     @checks.mod_or_permissions(manage_messages=True)
     async def create(self, ctx, name : str, *, content : str):
         """Creates a new tag owned by you.
@@ -302,7 +302,7 @@ class Tags:
         await self.config.put(server.id, db)
         await self.bot.say('Tag alias "{}" that points to "{.name}" successfully created.'.format(new_name, original))
 
-    @tag.command(pass_context=True, ignore_extra=False)
+    @tag.command(pass_context=True, ignore_extra=False, no_pm=True)
     @checks.mod_or_permissions(administrator=True)
     async def make(self, ctx):
         """Interactive makes a tag for you.
@@ -452,7 +452,7 @@ class Tags:
         if not tag.is_generic:
             can_delete = checks.role_or_permissions(ctx, lambda r: r.name == 'Bot Admin', manage_messages=True)
         else:
-            can_delete = checks.is_owner_check(ctx.message)
+            can_delete = checks.is_owner_check(ctx)
 
         can_delete = can_delete or tag.owner_id == ctx.message.author.id
 
