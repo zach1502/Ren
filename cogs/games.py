@@ -56,7 +56,7 @@ class Games:
                     break
                 message+='{:<5}{:<10}\n'.format(i, game)
             message+='```'
-            await self.bot.say(message + "\nFull games list at https://discord.injabie3.moe/games")
+            await self.bot.say(message + "\nFull games list at https://ren.injabie3.moe/games")
 
 def check_folder():
     if not os.path.exists('data/games'):

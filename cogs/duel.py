@@ -481,7 +481,7 @@ class Duel:
                 place += 1
             if highscore:
                 if len(highscore) < 1985:
-                    await self.bot.say("```py\n" + highscore + "```" + "\nFull rankings at https://discord.injabie3.moe/duels")
+                    await self.bot.say("```py\n" + highscore + "```" + "\nFull rankings at https://ren.injabie3.moe/duels")
                 else:
                     await self.bot.say("The leaderboard is too big to be displayed. Try with a lower <top> parameter.")
         else:
