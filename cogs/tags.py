@@ -192,7 +192,7 @@ class Tags:
             raise RuntimeError('Tag name is a maximum of 100 characters.')
 
     @tag.command(pass_context=True, aliases=['add'], no_pm=True)
-    @checks.mod_or_permissions(manage_messages=True)
+    @checks.sensei_or_mod_or_permissions(manage_messages=True)
     async def create(self, ctx, name : str, *, content : str):
         """Creates a new tag owned by you.
         If you create a tag via private message then the tag is a generic
@@ -303,7 +303,7 @@ class Tags:
         await self.bot.say('Tag alias "{}" that points to "{.name}" successfully created.'.format(new_name, original))
 
     @tag.command(pass_context=True, ignore_extra=False, no_pm=True)
-    @checks.mod_or_permissions(administrator=True)
+    @checks.sensei_or_mod_or_permissions(administrator=True)
     async def make(self, ctx):
         """Interactive makes a tag for you.
         This walks you through the process of creating a tag with
@@ -396,7 +396,7 @@ class Tags:
         await self.bot.say(embed=e,content="")
 
     @tag.command(pass_context=True)
-    @checks.mod_or_permissions(manage_messages=True)
+    @checks.sensei_or_mod_or_permissions(manage_messages=True)
     async def edit(self, ctx, name : str, *, content : str):
         """Modifies an existing tag that you own.
         This command completely replaces the original text. If you edit
@@ -433,7 +433,7 @@ class Tags:
         await self.bot.say('Tag successfully edited.')
 
     @tag.command(pass_context=True, aliases=['delete'])
-    @checks.mod_or_permissions(manage_messages=True)
+    @checks.sensei_or_mod_or_permissions(manage_messages=True)
     async def remove(self, ctx, *, name : str):
         """Removes a tag that you own.
         The tag owner can always delete their own tags. If someone requests
