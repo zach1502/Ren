@@ -557,10 +557,22 @@ class Tags:
 
         if tags:
             try:
-                p = Pages(self.bot, message=ctx.message, entries=tags)
-                p.embed.colour = 0x738bd7 # blurple
-                p.embed.set_author(name=owner.display_name, icon_url=owner.avatar_url or owner.default_avatar_url)
-                await p.paginate()
+                self.dm = self.config.get("dm", False)
+                if self.dm:
+                    msg = "Here are a list of tags for {}:\n```".format(ctx.message.author.mention)
+                    for item in tags:
+                        if len(msg) + len(item) > 2000:
+                            msg += "```"
+                            await self.bot.send_message(ctx.message.author, msg)
+                            msg = "```"
+                        msg += item + "\n"
+                    msg += "```"
+                    await self.bot.send_message(ctx.message.author, msg)
+                else:
+                    p = Pages(self.bot, message=ctx.message, entries=tags)
+                    p.embed.colour = 0x738bd7 # blurple
+                    p.embed.set_author(name=owner.display_name, icon_url=owner.avatar_url or owner.default_avatar_url)
+                    await p.paginate()
             except Exception as e:
                 await self.bot.say(e)
         else:
@@ -575,9 +587,21 @@ class Tags:
 
         if tags:
             try:
-                p = Pages(self.bot, message=ctx.message, entries=tags, per_page=15)
-                p.embed.colour =  0x738bd7 # blurple
-                await p.paginate()
+                self.dm = self.config.get("dm", False)
+                if self.dm:
+                    msg = "Here are a list of tags for {}:\n```".format(ctx.message.server.name)
+                    for item in tags:
+                        if len(msg) + len(item) > 2000:
+                            msg += "```"
+                            await self.bot.send_message(ctx.message.author, msg)
+                            msg = "```"
+                        msg += item + "\n"
+                    msg += "```"
+                    await self.bot.send_message(ctx.message.author, msg)
+                else:
+                    p = Pages(self.bot, message=ctx.message, entries=tags, per_page=15)
+                    p.embed.colour =  0x738bd7 # blurple
+                    await p.paginate()
             except Exception as e:
                 await self.bot.say(e)
         else:
@@ -661,6 +685,20 @@ class Tags:
     async def search_error(self, error, ctx):
         if isinstance(error, commands.MissingRequiredArgument):
             await self.bot.say('Missing query to search for.')
+    
+    @tag.command(name="toggledm", pass_context=True, no_pm=True)
+    @checks.mod_or_permissions(manage_messages=True)
+    async def toggledm(self, ctx):
+        """Toggle sending DM for list of tags."""
+        self.dm = self.config.get("dm", False)
+        if self.dm:
+            self.dm = False
+            await self.config.put("dm", False)
+            await self.bot.say("\N{WHITE HEAVY CHECK MARK} **Tags - DM**: Tag lists will be sent **in the channel they were requested**.")
+        else:
+            self.dm = True
+            await self.config.put("dm", True)
+            await self.bot.say("\N{WHITE HEAVY CHECK MARK} **Tags - DM**: Tag lists will be sent **in a DM**.")
 
 def setup(bot):
     bot.add_cog(Tags(bot))
