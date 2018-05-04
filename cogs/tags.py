@@ -117,6 +117,7 @@ class Tags:
         self.bot = bot
         self.config = config.Config('tags.json', cogname='tags', encoder=TagEncoder, object_hook=tag_decoder,
                                                  loop=bot.loop, load_later=True)
+        self.settings = config.Config('settings.json', cogname='tags')
                                                  
     def get_database_location(self, message):
         return 'generic' if message.channel.is_private else message.server.id
@@ -557,7 +558,7 @@ class Tags:
 
         if tags:
             try:
-                self.dm = self.config.get("dm", False)
+                self.dm = self.settings.get("dm", False)
                 if self.dm:
                     msg = "Here are a list of tags for {}:\n```".format(ctx.message.author.mention)
                     for item in tags:
@@ -582,12 +583,12 @@ class Tags:
     async def _all(self, ctx):
         """Lists all server-specific tags for this server."""
 
-        tags = [tag.name for tag in self.config.get(ctx.message.server.id, {}).values()]
+        tags = [tag.name for tag in self.settings.get(ctx.message.server.id, {}).values()]
         tags.sort()
 
         if tags:
             try:
-                self.dm = self.config.get("dm", False)
+                self.dm = self.settings.get("dm", False)
                 if self.dm:
                     msg = "Here are a list of tags for {}:\n```".format(ctx.message.server.name)
                     for item in tags:
@@ -690,14 +691,14 @@ class Tags:
     @checks.mod_or_permissions(manage_messages=True)
     async def toggledm(self, ctx):
         """Toggle sending DM for list of tags."""
-        self.dm = self.config.get("dm", False)
+        self.dm = self.settings.get("dm", False)
         if self.dm:
             self.dm = False
-            await self.config.put("dm", False)
+            await self.settings.put("dm", False)
             await self.bot.say("\N{WHITE HEAVY CHECK MARK} **Tags - DM**: Tag lists will be sent **in the channel they were requested**.")
         else:
             self.dm = True
-            await self.config.put("dm", True)
+            await self.settings.put("dm", True)
             await self.bot.say("\N{WHITE HEAVY CHECK MARK} **Tags - DM**: Tag lists will be sent **in a DM**.")
 
 def setup(bot):
