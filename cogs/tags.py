@@ -561,7 +561,7 @@ class Tags:
                 if self.dm:
                     msg = "Here are a list of tags for {}:\n```".format(ctx.message.author.mention)
                     for item in tags:
-                        if len(msg) + len(item) > 2000:
+                        if len(msg) + len(item) > 1990:
                             msg += "```"
                             await self.bot.send_message(ctx.message.author, msg)
                             msg = "```"
@@ -591,7 +591,7 @@ class Tags:
                 if self.dm:
                     msg = "Here are a list of tags for {}:\n```".format(ctx.message.server.name)
                     for item in tags:
-                        if len(msg) + len(item) > 2000:
+                        if len(msg) + len(item) > 1990:
                             msg += "```"
                             await self.bot.send_message(ctx.message.author, msg)
                             msg = "```"
