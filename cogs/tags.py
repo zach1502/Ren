@@ -560,6 +560,7 @@ class Tags:
             try:
                 self.dm = self.settings.get("dm", False)
                 if self.dm:
+                    await self.bot.say("Check your DMs.")
                     msg = "Here are a list of tags for {}:\n```".format(ctx.message.author.mention)
                     for item in tags:
                         if len(msg) + len(item) > 1990:
@@ -583,13 +584,14 @@ class Tags:
     async def _all(self, ctx):
         """Lists all server-specific tags for this server."""
 
-        tags = [tag.name for tag in self.settings.get(ctx.message.server.id, {}).values()]
+        tags = [tag.name for tag in self.config.get(ctx.message.server.id, {}).values()]
         tags.sort()
 
         if tags:
             try:
                 self.dm = self.settings.get("dm", False)
                 if self.dm:
+                    await self.bot.say("Check your DMs.")
                     msg = "Here are a list of tags for {}:\n```".format(ctx.message.server.name)
                     for item in tags:
                         if len(msg) + len(item) > 1990:
