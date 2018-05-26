@@ -433,7 +433,7 @@ class Tags:
         await self.config.put(tag.location, db)
         await self.bot.say('Tag successfully edited.')
 
-    @tag.command(pass_context=True, aliases=['delete'])
+    @tag.command(pass_context=True, aliases=['delete','del'])
     @checks.sensei_or_mod_or_permissions(manage_messages=True)
     async def remove(self, ctx, *, name : str):
         """Removes a tag that you own.
