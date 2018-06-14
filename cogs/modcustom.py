@@ -62,7 +62,7 @@ class ModCustom(object):
             return False
             
     @commands.group(pass_context=True)
-    @checks.is_owner_or_permissions(administrator=True)
+    @checks.mod_or_permissions(administrator=True)
     async def plonked(self, ctx):
         """Bans user from using the bot"""
         if ctx.invoked_subcommand is None:
