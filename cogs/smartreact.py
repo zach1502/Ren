@@ -226,9 +226,7 @@ class SmartReact:
                     try:
                         await self.bot.add_reaction(message, fixed_emoji)
                     except discord.errors.Forbidden as e:
-                        print("SmartReact Error:")
-                        print(e)
-
+                        pass
 
 def check_folders():
     folder = "data/smartreact"
