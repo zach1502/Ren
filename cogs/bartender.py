@@ -50,6 +50,7 @@ class Bartender:
         author = ctx.message.author
         if amount > 100:
             await self.bot.reply("Whoa, I'm afraid that I don't have enough glasses to serve you.")
+            return
         else:
         #Get Economy data
             if self.econ_interlink() != None and self.settings["bar_status"]:
