@@ -57,7 +57,7 @@ class Bartender:
                 econ = self.econ_interlink()
             else:
                 await self.bot.reply("Sorry mate, the bar is closed.")
-            return
+                return
 
         price = -1
         icon = ""
