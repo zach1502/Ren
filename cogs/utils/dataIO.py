@@ -38,8 +38,6 @@ class DataIO():
             return True
         except FileNotFoundError:
             return False
-        except json.decoder.JSONDecodeError:
-            return False
 
     def _read_json(self, filename):
         with open(filename, encoding='utf-8', mode="r") as f:
