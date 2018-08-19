@@ -66,7 +66,6 @@ class SmartReact:
         """List the auto reaction emojis and triggers"""
         guild_id = ctx.message.server.id
         guild_name = ctx.message.server.name
-        user = ctx.message.author
 
         display = []
         for emoji, trigger in self.settings[guild_id].items():
@@ -75,10 +74,13 @@ class SmartReact:
                 text += trigger[n]+" "
             display.append(text)
 
-        p = Pages(self.bot,message=ctx.message,entries=display)
-        p.embed.title = "Smart React emojis for: **{}**".format(guild_name)
-        p.embed.colour = discord.Colour.red()
-        await p.paginate()
+        if not display:
+            await self.bot.say("There are no smart reacts configured in this server.")
+        else:
+            p = Pages(self.bot,message=ctx.message,entries=display)
+            p.embed.title = "Smart React emojis for: **{}**".format(guild_name)
+            p.embed.colour = discord.Colour.red()
+            await p.paginate()
 
     def load_settings(self, server_id):
         self.settings = dataIO.load_json(self.settings_path)
