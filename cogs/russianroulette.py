@@ -110,7 +110,7 @@ class Russianroulette:
                 elif len(settings["Players"].keys()) >= 6:
                     msg = "Sorry. The max amount of players is 6."
                 else:
-                    if bet == settings["System"]["Start Bet"]:
+                    if bet == settings["System"]["Start Bet"] and not settings["System"]["Active"]:
                         self.player_add(settings, user, bet)
                         self.subtract_credits(settings, user, bet)
                         msg = "{} has joined the roulette circle".format(user.name)
