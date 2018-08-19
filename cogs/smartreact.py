@@ -66,7 +66,6 @@ class SmartReact:
         """List the auto reaction emojis and triggers"""
         guild_id = ctx.message.server.id
         guild_name = ctx.message.server.name
-        user = ctx.message.author
 
         display = []
         for emoji, trigger in self.settings[guild_id].items():
