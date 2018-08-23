@@ -91,11 +91,11 @@ PAYOUTS = {
         "phrase" : "Two cherries! Your bid has been multiplied * 4!"
     },
     "3 symbols" : {
-        "payout" : lambda x: x * 2.5 + x,
-        "phrase" : "Three symbols! Your bid has been multiplied * 2.5!"
+        "payout" : lambda x: x * 3 + x,
+        "phrase" : "Three symbols! Your bid has been multiplied * 3!"
     },
     "2 symbols" : {
-        "payout" : lambda x: x * 1.5 + x,
+        "payout" : lambda x: x * 2 + x,
         "phrase" : "Two consecutive symbols! Your bid has been multiplied!"
     },
 }
@@ -106,8 +106,8 @@ SLOT_PAYOUTS_MSG = ("Slot machine payouts:\n"
                     "{cherries.value} {cherries.value} {cherries.value} * 15\n"
                     "{two.value} {six.value} Bet * 6\n"
                     "{cherries.value} {cherries.value} Bet * 4\n\n"
-                    "Three symbols: * 2.5\n"
-                    "Two symbols: Bet * 1.5".format(**SMReel.__dict__))
+                    "Three symbols: * 3\n"
+                    "Two symbols: Bet * 2".format(**SMReel.__dict__))
 
 
 class Bank:
