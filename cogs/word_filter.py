@@ -18,6 +18,11 @@ from cogs.utils.paginator import Pages
 
 COLOUR = discord.Colour
 LOGGER = None
+PATH = "data/word_filter/"
+PATH_BLACKLIST = PATH + "command_blacklist.json"
+PATH_FILTER = PATH + "filter.json"
+PATH_SETTINGS = PATH + "settings.json"
+PATH_WHITELIST = PATH + "whitelist.json"
 
 def checkFileSystem():
     """Check if the folders/files are created."""
@@ -28,9 +33,8 @@ def checkFileSystem():
             print("Word Filter: Creating folder: {} ...".format(folder))
             os.makedirs(folder)
 
-    files = ["data/word_filter/filter.json",
-             "data/word_filter/settings.json",
-             "data/word_filter/whitelist.json"]
+    files = [PATH_BLACKLIST, PATH_FILTER, PATH_SETTINGS, PATH_WHITELIST]
+
     for file in files:
         if not os.path.exists(file):
             #build a default filter.json
@@ -45,9 +49,10 @@ class WordFilter(): # pylint: disable=too-many-instance-attributes
         self.bot = bot
         self.lock = Lock()
         self.lockSettings = Lock()
-        self.filters = dataIO.load_json("data/word_filter/filter.json")
-        self.whitelist = dataIO.load_json("data/word_filter/whitelist.json")
-        self.settings = dataIO.load_json("data/word_filter/settings.json")
+        self.commandBlacklist = dataIO.load_json(PATH_BLACKLIST)
+        self.filters = dataIO.load_json(PATH_FILTER)
+        self.whitelist = dataIO.load_json(PATH_WHITELIST)
+        self.settings = dataIO.load_json(PATH_SETTINGS)
         self.colours = [COLOUR.purple(),
                         COLOUR.red(),
                         COLOUR.blue(),
@@ -57,27 +62,35 @@ class WordFilter(): # pylint: disable=too-many-instance-attributes
         #JSON keys for settings:
         self.keyToggleMod = "toggleMod"
 
-    def _updateFilters(self, newObj):
+    def _updateFilters(self):
         self.lock.acquire()
         try:
-            dataIO.save_json("data/word_filter/filter.json", newObj)
-            self.filters = dataIO.load_json("data/word_filter/filter.json")
+            dataIO.save_json(PATH_FILTER, self.filters)
+            self.filters = dataIO.load_json(PATH_FILTER)
         finally:
             self.lock.release()
 
-    def _updateWhitelist(self, newObj):
+    def _updateCommandBlacklist(self):
         self.lock.acquire()
         try:
-            dataIO.save_json("data/word_filter/whitelist.json", newObj)
-            self.whitelist = dataIO.load_json("data/word_filter/whitelist.json")
+            dataIO.save_json(PATH_BLACKLIST, self.commandBlacklist)
+            self.commandBlacklist = dataIO.load_json(PATH_BLACKLIST)
         finally:
             self.lock.release()
 
-    def _updateSettings(self, newObj):
+    def _updateWhitelist(self):
+        self.lock.acquire()
+        try:
+            dataIO.save_json(PATH_WHITELIST, self.whitelist)
+            self.whitelist = dataIO.load_json(PATH_WHITELIST)
+        finally:
+            self.lock.release()
+
+    def _updateSettings(self):
         self.lockSettings.acquire()
         try:
-            dataIO.save_json("data/word_filter/settings.json", newObj)
-            self.settings = dataIO.load_json("data/word_filter/settings.json")
+            dataIO.save_json(PATH_SETTINGS, self.settings)
+            self.settings = dataIO.load_json(PATH_SETTINGS)
         finally:
             self.lockSettings.release()
 
@@ -100,11 +113,11 @@ class WordFilter(): # pylint: disable=too-many-instance-attributes
             myDict = {}
             myDict[guildId] = []
             self.filters.update(myDict)
-            self._updateFilters(self.filters)
+            self._updateFilters()
 
         if word not in self.filters[guildId]:
             self.filters[guildId].append(word)
-            self._updateFilters(self.filters)
+            self._updateFilters()
             await self.bot.send_message(user,
                                         "`Word Filter:` `{0}` was added to the filter "
                                         "in the guild **{1}**".format(word, guildName))
@@ -134,7 +147,7 @@ class WordFilter(): # pylint: disable=too-many-instance-attributes
                                         "filter for guild **{1}**".format(word, guildName))
         else:
             self.filters[guildId].remove(word)
-            self._updateFilters(self.filters)
+            self._updateFilters()
             await self.bot.send_message(user,
                                         "`Word Filter:` `{0}` removed from the filter "
                                         "in the guild **{1}**".format(word, guildName))
@@ -181,7 +194,7 @@ class WordFilter(): # pylint: disable=too-many-instance-attributes
     @checks.mod_or_permissions(manage_messages=True)
     async def toggleMod(self, ctx):
         """Toggle global override of filters for server admins/mods."""
-        self._updateSettings(self.settings)
+        self._updateSettings()
         try:
             if self.settings[ctx.message.author.server.id][self.keyToggleMod] is True:
                 self.settings[ctx.message.author.server.id][self.keyToggleMod] = False
@@ -194,7 +207,7 @@ class WordFilter(): # pylint: disable=too-many-instance-attributes
                 self.settings[ctx.message.author.server.id] = {}
             self.settings[ctx.message.author.server.id][self.keyToggleMod] = True
             isSet = True
-        self._updateSettings(self.settings)
+        self._updateSettings()
         if isSet:
             await self.bot.say(":white_check_mark: Word Filter: Moderators (and "
                                "higher) **will not be** filtered.")
@@ -202,7 +215,105 @@ class WordFilter(): # pylint: disable=too-many-instance-attributes
             await self.bot.say(":negative_squared_cross_mark: Word Filter: Moderators "
                                "(and higher) **will be** filtered.")
 
-        self._updateSettings(self.settings)
+    #########################################
+    # COMMANDS - COMMAND BLACKLIST SETTINGS #
+    #########################################
+    @wordFilter.group(name="command", pass_context=True, no_pm=True,
+                      aliases=["cmd"])
+    @checks.mod_or_permissions(manage_messages=True)
+    async def _command(self, ctx):
+        """Blacklist command settings. (help for more info)
+        Settings for controlling filtering on commands.
+        """
+        if str(ctx.invoked_subcommand).lower() == "word_filter command":
+            await send_cmd_help(ctx)
+
+    @_command.command(name="add", pass_context=True, no_pm=True)
+    async def _commandAdd(self, ctx, cmd: str):
+        """Add a command (without prefix) to the blacklist.
+        If the invoked command contains any filtered words, the entire message
+        is filtered and the contents of the message will be sent back to the
+        user via DM.
+        """
+        guildId = ctx.message.server.id
+
+        if guildId not in list(self.commandBlacklist):
+            myDict = {}
+            myDict[guildId] = []
+            self.commandBlacklist.update(myDict)
+            self._updateCommandBlacklist()
+
+        if cmd not in self.commandBlacklist[guildId]:
+            self.commandBlacklist[guildId].append(cmd)
+            self._updateCommandBlacklist()
+            await self.bot.say(":white_check_mark: Word Filter: Command `{0}` is now "
+                               "blacklisted.  It will have the entire message filtered "
+                               "if it contains any filterable words, and its contents "
+                               "DM'd back to the user.".format(cmd))
+        else:
+            await self.bot.say(":negative_squared_cross_mark: Word Filter: Command "
+                               "`{0}` is already blacklisted.".format(cmd))
+
+    @_command.command(name="del", pass_context=True, no_pm=True,
+                      aliases=["delete", "remove"])
+    @checks.mod_or_permissions(manage_messages=True)
+    async def _commandRemove(self, ctx, cmd: str):
+        """Remove a command from the blacklist.
+        The command that is removed from the list will be filtered as normal
+        messages.  That is, if the invoked command contains any filtered words,
+        only the filtered words will be censored and replaced (as opposed to the
+        entire message being deleted).
+        """
+        guildId = ctx.message.server.id
+        guildName = ctx.message.server.name
+
+        if guildId not in list(self.commandBlacklist):
+            await self.bot.say(":negative_squared_cross_mark: Word Filter: The "
+                               "guild **{}** does not have blacklisted commands, "
+                               "please add a command to the blacklist first, and "
+                               "try again.".format(guildName))
+            return
+
+        if not self.commandBlacklist[guildId] or cmd not in self.commandBlacklist[guildId]:
+            await self.bot.say(":negative_squared_cross_mark: Word Filter: Command "
+                               "`{0}` wasn't on the blacklist.".format(cmd))
+        else:
+            self.commandBlacklist[guildId].remove(cmd)
+            self._updateCommandBlacklist()
+            await self.bot.say(":white_check_mark: Word Filter: `{0}` removed from "
+                               "the command blacklist.".format(cmd))
+
+    @_command.command(name="list", pass_context=True, no_pm=True,
+                      aliases=["ls"])
+    @checks.mod_or_permissions(manage_messages=True)
+    async def _commandList(self, ctx):
+        """List blacklisted commands.
+        If the commands on this list are invoked with any filtered words, the
+        entire message is filtered and the contents of the message will be sent
+        back to the user via DM.
+        """
+        guildId = ctx.message.server.id
+        guildName = ctx.message.server.name
+
+        if guildId not in list(self.commandBlacklist):
+            await self.bot.say(":negative_squared_cross_mark: Word Filter: The "
+                               "guild **{}** does not have blacklisted commands, "
+                               "please add a command to the blacklist first, and "
+                               "try again.".format(guildName))
+            return
+
+        if self.commandBlacklist[guildId]:
+            display = []
+            for cmd in self.commandBlacklist[guildId]:
+                display.append("`{}`".format(cmd))
+
+            page = Pages(self.bot, message=ctx.message, entries=display)
+            page.embed.title = "Blacklisted commands for: **{}**".format(guildName)
+            page.embed.colour = discord.Colour.red()
+            await page.paginate()
+        else:
+            await self.bot.say("Sorry, there are no blacklisted commands in "
+                               "**{}**".format(guildName))
 
     ############################################
     # COMMANDS - CHANNEL WHITELISTING SETTINGS #
@@ -227,11 +338,11 @@ class WordFilter(): # pylint: disable=too-many-instance-attributes
             myDict = {}
             myDict[guildId] = []
             self.whitelist.update(myDict)
-            self._updateWhitelist(self.whitelist)
+            self._updateWhitelist()
 
         if channelName not in self.whitelist[guildId]:
             self.whitelist[guildId].append(channelName)
-            self._updateWhitelist(self.whitelist)
+            self._updateWhitelist()
             await self.bot.say(":white_check_mark: Word Filter: Channel with name "
                                "`{0}` will not be filtered.".format(channelName))
         else:
@@ -259,7 +370,7 @@ class WordFilter(): # pylint: disable=too-many-instance-attributes
                                "`{0}` was already not whitelisted.".format(channelName))
         else:
             self.whitelist[guildId].remove(channelName)
-            self._updateWhitelist(self.whitelist)
+            self._updateWhitelist()
             await self.bot.say(":white_check_mark: Word Filter: `{0}` removed from "
                                "the channel whitelist.".format(channelName))
 
@@ -373,7 +484,8 @@ class WordFilter(): # pylint: disable=too-many-instance-attributes
             return False
         return True
 
-    async def checkWords(self, msg, newMsg=None): # pylint: disable=too-many-locals
+    async def checkWords(self, msg, newMsg=None): \
+        # pylint: disable=too-many-locals, too-many-branches
         """This method, given a message, will check to see if the message contains
         any filterable words, and if it does, deletes the original message and
         sends another message with the filterable words censored.
@@ -385,6 +497,7 @@ class WordFilter(): # pylint: disable=too-many-instance-attributes
             return
 
         guildId = msg.server.id
+        blacklistedCmd = False
 
         filteredWords = self.filters[guildId]
         if newMsg:
@@ -394,6 +507,12 @@ class WordFilter(): # pylint: disable=too-many-instance-attributes
         originalMsg = checkMsg
         filteredMsg = originalMsg
         oneWord = _isOneWord(checkMsg)
+
+        if guildId in self.commandBlacklist:
+            for prefix in self.bot.command_prefix(self.bot, msg):
+                for cmd in self.commandBlacklist[guildId]:
+                    if checkMsg.startswith(prefix+cmd):
+                        blacklistedCmd = True
 
         for word in filteredWords:
             try:
@@ -409,14 +528,32 @@ class WordFilter(): # pylint: disable=too-many-instance-attributes
         if filteredMsg == originalMsg:
             return # no bad words, don't need to do anything else
 
-        if (filteredMsg != originalMsg and oneWord) or allFiltered:
-            await self.bot.delete_message(msg) # delete message but don't show full message context
+        await self.bot.delete_message(msg)
+        if blacklistedCmd:
+            # If the it contains a filtered word AND the blacklisted command flag was
+            # set above, then:
+            # - Delete the message,
+            # - Notify on the channel that the message was filtered without showing context
+            # - DM user with the filtered context as per what we see usually.
+            filterNotify = "{0.author.mention} was filtered!".format(msg)
+            notifyMsg = await self.bot.send_message(msg.channel, filterNotify)
+            filterNotify = "You were filtered! Your message was: \n"
+            embed = discord.Embed(colour=random.choice(self.colours),
+                                  description="{0.author.name}#{0.author.discriminator}: "
+                                  "{1}".format(msg, filteredMsg))
+            try:
+                await self.bot.send_message(msg.author, filterNotify, embed=embed)
+            except discord.errors.Forbidden as error:
+                LOGGER.error("Could not DM user, perhaps they have blocked DMs?")
+                LOGGER.error(error)
+            await asyncio.sleep(3)
+            await self.bot.delete_message(notifyMsg)
+        elif (filteredMsg != originalMsg and oneWord) or allFiltered:
             filterNotify = "{0.author.mention} was filtered!".format(msg)
             notifyMsg = await self.bot.send_message(msg.channel, filterNotify)
             await asyncio.sleep(3)
             await self.bot.delete_message(notifyMsg)
         else:
-            await self.bot.delete_message(msg)
             filterNotify = "{0.author.mention} was filtered! Message was: \n".format(msg)
             embed = discord.Embed(colour=random.choice(self.colours),
                                   description="{0.author.name}#{0.author.discriminator}: "
