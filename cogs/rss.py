@@ -109,6 +109,9 @@ def _getFeed(rssUrl, channel, index=None):
         feeds['feeds'][index]['latest_post_time'] = latestPostTime
     dataIO.save_json("data/rss/feeds.json", feeds)
 
+    # Heartbeat
+    dataIO.save_json("data/rss/timestamp.json","{}")
+
     return news
 
 def _getLatestPostTime(feedItems):
@@ -193,7 +196,12 @@ class RSSFeed():
                 rssImage = RSS_IMAGE
                 embed.set_footer(text=footerText, icon_url=rssImage)
 
-                await self.bot.send_message(postChannel, embed=embed)
+                # Keep this in a try block in case of Discord's explicit filter.
+                try:
+                    await self.bot.send_message(postChannel, embed=embed)
+                except discord.errors.HTTPException as error:
+                    LOGGER.error("Could not post to RSS channel!")
+                    LOGGER.error(error)
 
             try:
                 await asyncio.sleep(self.checkInterval)
