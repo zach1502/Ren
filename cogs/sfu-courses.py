@@ -1,4 +1,4 @@
-# Imported code from Brendan Fan.
+# Imported code from Brendan Chan.
 # https://github.com/brenfan/sfu-api/blob/master/python/courses.py
 # Changes made by Injabie3.
 # - Made it async to avoid blocking calls.
