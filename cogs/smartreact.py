@@ -108,12 +108,12 @@ class SmartReact:
     # Helper function that matches the name of the emoji and gets the updated custom emoji ID
     # Will raise ValueError if the comparison emoji is not in the names_list
     def get_updated_emoji(self, names_list, compare_emoji, server):
-        locv = names_list.index(compare_emoji.split(':')[1])
+        locv = names_list.index(compare_emoji.split(':')[1].lower())
         return str(server.emojis[locv])
         
 
     async def update_emojis(self, server):
-        names_list = [x.name for x in server.emojis]
+        names_list = [x.name.lower() for x in server.emojis]
         settings = copy.deepcopy(self.settings[server.id])
 
         for emoji in self.settings[server.id].keys():
