@@ -9,7 +9,7 @@
 We welcome changes that benefit the server as a whole!  Please feel free to discuss in `#feedback` on the Discord server about your ideas.
 
 # Installation
-Please consult the original forked README [here](README-upstream.md) for more details.
+Please consult the original forked README [here](README_upstream.md) for more details.
 
 # License
 [GNU GPL v3](LICENSE).
