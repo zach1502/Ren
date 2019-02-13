@@ -4,7 +4,6 @@ See road conditions in realtime.
 
 import os
 import urllib.request
-import discord
 from discord.ext import commands
 
 WEBCAM_GAGLARDI = ("http://ns-webcams.its.sfu.ca/public/images/gaglardi-current.jpg"
@@ -36,9 +35,9 @@ class SFUCam: # pylint: disable=too-few-public-methods
         self.bot = bot
 
     @commands.command(name="cam", pass_context=True)
-    async def cam(self, ctx, cam: str=""):
+    async def cam(self, ctx, cam: str = ""):
         """SFU webcam, defaults to Gaglardi.
-        
+
         Parameters:
         -----------
         cam: str
@@ -77,7 +76,7 @@ class SFUCam: # pylint: disable=too-few-public-methods
         if os.stat(path).st_size == 0:
             await self.bot.say(":warning: This webcam is currently unavailable!")
             return
-            
+
         await self.bot.send_file(ctx.message.channel, path)
 
 
