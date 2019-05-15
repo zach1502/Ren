@@ -15,6 +15,7 @@ from pkg_resources import DistributionNotFound
 
 from .. import __version__ as red_version, version_info as red_version_info, VersionInfo
 from . import commands
+from .config import get_latest_confs
 from .data_manager import storage_type
 from .utils.chat_formatting import inline, bordered, format_perms_list, humanize_timedelta
 from .utils import fuzzy_command_search, format_fuzzy_results
@@ -118,13 +119,25 @@ def init_events(bot, cli_flags):
                     "Outdated version! {} is available "
                     "but you're using {}".format(data["info"]["version"], red_version)
                 )
-                owner = await bot.get_user_info(bot.owner_id)
-                await owner.send(
-                    "Your Red instance is out of date! {} is the current "
-                    "version, however you are using {}!".format(
-                        data["info"]["version"], red_version
-                    )
-                )
+
+                owners = []
+                owner = bot.get_user(bot.owner_id)
+                if owner is not None:
+                    owners.append(owner)
+
+                for co_owner in bot._co_owners:
+                    co_owner = await bot.get_user(co_owner)
+                    if co_owner is not None:
+                        owners.append(co_owner)
+
+                for owner in owners:
+                    with contextlib.suppress(discord.HTTPException):
+                        await owner.send(
+                            "Your Red instance is out of date! {} is the current "
+                            "version, however you are using {}!".format(
+                                data["info"]["version"], red_version
+                            )
+                        )
         INFO2 = []
 
         mongo_enabled = storage_type() != "JSON"
@@ -167,8 +180,9 @@ def init_events(bot, cli_flags):
             if hasattr(ctx.command, "on_error"):
                 return
 
-            if ctx.cog and hasattr(ctx.cog, f"_{ctx.cog.__class__.__name__}__error"):
-                return
+            if ctx.cog:
+                if commands.Cog._get_overridden_method(ctx.cog.cog_command_error) is not None:
+                    return
 
         if isinstance(error, commands.MissingRequiredArgument):
             await ctx.send_help()
@@ -236,7 +250,8 @@ def init_events(bot, cli_flags):
             await ctx.send(
                 "This command is on cooldown. Try again in {}.".format(
                     humanize_timedelta(seconds=error.retry_after)
-                )
+                ),
+                delete_after=error.retry_after,
             )
         else:
             log.exception(type(error).__name__, exc_info=error)
@@ -303,6 +318,14 @@ def init_events(bot, cli_flags):
             command_obj = bot.get_command(command_name)
             if command_obj is not None:
                 command_obj.enable_in(guild)
+
+    @bot.event
+    async def on_cog_add(cog: commands.Cog):
+        confs = get_latest_confs()
+        for c in confs:
+            uuid = c.unique_identifier
+            group_data = c.custom_groups
+            await bot.db.custom("CUSTOM_GROUPS", c.cog_name, uuid).set(group_data)
 
 
 def _get_startup_screen_specs():
