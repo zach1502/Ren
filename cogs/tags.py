@@ -256,35 +256,36 @@ class Tags:
     async def dump(self, ctx):
         """Dumps server-specific tags to a CSV file, sorted by number of uses."""
         sid = ctx.message.server.id
-        with self.lock, open(DUMP_IN, "r") as inputFile, open(DUMP_OUT, "w") as outputFile:
-            tags = json.load(inputFile)
-            if sid not in tags.keys():
-                await self.bot.say("There are no tags on this server!")
+        with self.lock:
+            with open(DUMP_IN, "r") as inputFile, open(DUMP_OUT, "w") as outputFile:
+                tags = json.load(inputFile)
+                if sid not in tags.keys():
+                    await self.bot.say("There are no tags on this server!")
 
-            csvWriter = csv.writer(outputFile)
-            headerCreated = False
+                csvWriter = csv.writer(outputFile)
+                headerCreated = False
 
-            # Convert to list, and sort by ascending number of uses.
-            tags = [contents for contents in tags[sid].values()]
-            tags = sorted(tags, key=lambda k: k["uses"])
+                # Convert to list, and sort by ascending number of uses.
+                tags = [contents for contents in tags[sid].values()]
+                tags = sorted(tags, key=lambda k: k["uses"])
 
-            # We only care about server tags
-            for tag in tags:
-                tag["created_at"] = datetime.datetime.fromtimestamp(tag["created_at"])
+                # We only care about server tags
+                for tag in tags:
+                    tag["created_at"] = datetime.datetime.fromtimestamp(tag["created_at"])
 
-                if not headerCreated:
-                    header = list(tag.keys()) + ["owner_name"]
-                    csvWriter.writerow(header)
-                    headerCreated = True
+                    if not headerCreated:
+                        header = list(tag.keys()) + ["owner_name"]
+                        csvWriter.writerow(header)
+                        headerCreated = True
 
-                owner = discord.utils.get(ctx.message.server.members, id=tag["owner_id"])
-                if not owner:
-                    owner = "Unknown"
-                else:
-                    owner = owner.name
+                    owner = discord.utils.get(ctx.message.server.members, id=tag["owner_id"])
+                    if not owner:
+                        owner = "Unknown"
+                    else:
+                        owner = owner.name
 
-                data = list(tag.values()) + [owner]
-                csvWriter.writerow(data)
+                    data = list(tag.values()) + [owner]
+                    csvWriter.writerow(data)
 
             await self.bot.send_file(ctx.message.channel, DUMP_OUT)
 
