@@ -436,7 +436,7 @@ class Highlight: # pylint: disable=too-many-instance-attributes
     async def checkForDarkHourDeletion(self, channel):
         """Background listener to check if dark-hour has been deleted"""
         if self.channelBlId and str(channel.id) == self.channelBlId:
-            self.channelBlId = "ignoreChannelID"
+            self.channelBlId = None
             LOGGER.info("Dark hour deletion has been detected and channelBlId has"
                         "been reset")
         else:
