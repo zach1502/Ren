@@ -488,9 +488,12 @@ class Economy:
             #Adding info site.
                 siteInfo = "\nFull rankings at https://ren.injabie3.moe/economy"
                 sleepTime = 60
-                msgId = await self.bot.say(box(page, lang="text") + siteInfo)
+                msgObj = await self.bot.say(box(page, lang="text") + siteInfo)
                 await asyncio.sleep(sleepTime)
-                await self.bot.delete_message(msgId)
+                try:
+                    await self.bot.delete_message(msgObj)
+                except discord.NotFound:
+                    logger.info("Could not delete leaderboard due to the message already being deleted")
         else:
             await self.bot.say("There are no accounts in the bank.")
 
