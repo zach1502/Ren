@@ -23,6 +23,7 @@ KEY_GUILDS = "guilds"
 KEY_BLACKLIST = "blacklist"
 KEY_TIMEOUT = "timeout"
 KEY_WORDS = "words"
+KEY_IGNORE = "ignoreChannelID"
 SAVE_FOLDER = "data/lui-cogs/highlight/"
 SAVE_FILE = "settings.json"
 
@@ -47,8 +48,10 @@ class Highlight:
         self.highlights = self.settings.get(KEY_GUILDS)
         self.highlights = {} if not self.highlights else self.highlights
 
+        self.channelBlId = self.settings.get(KEY_IGNORE, None)
         self.lastTriggered = {}
         self.triggeredLock = Lock()
+        
         # previously: dataIO.load_json("data/highlight/words.json")
         self.wordFilter = None
 
@@ -415,6 +418,30 @@ class Highlight:
                 self.lastTriggered[sid][cid] = {}
             self.lastTriggered[sid][cid][uid] = msg.timestamp
 
+    async def checkForDarkHourCreation(self, channel):
+        """Background listener to check if dark-hour has been created"""
+        chName = str(self.bot.get_channel(channel.id))
+        LOGGER.info("New Channel creation has been detected. Name: %s, ID: %s",
+                    chName, channel.id)
+        if chName == "dark-hour":
+            with self.lock:
+                self.channelBlId = channel.id
+                await self.settings.put(KEY_IGNORE, self.channelBlId)
+            LOGGER.info("Dark hour has been detected and channel id %s"
+                        " will be blacklisted from highlights.", channel.id)
+        else:
+            LOGGER.info("New channel is not called dark hour and will not be "
+                        "blacklisted")
+
+    async def checkForDarkHourDeletion(self, channel):
+        """Background listener to check if dark-hour has been deleted"""
+        if self.channelBlId and str(channel.id) == self.channelBlId:
+            self.channelBlId = "ignoreChannelID"
+            LOGGER.info("Dark hour deletion has been detected and channelBlId has"
+                        "been reset")
+        else:
+            LOGGER.info("Deleted channel is not dark hour so dark hour ID remains"
+                        "unchanged")
 
     async def checkHighlights(self, msg):
         """Background listener to check if a highlight has been triggered."""
@@ -424,6 +451,11 @@ class Highlight:
         guildId = msg.server.id
         userId = msg.author.id
         user = msg.author
+        channelId = msg.channel.id
+
+        # Prevents messages in a blacklisted channel from triggering highlight word
+        if self.channelBlId and channelId == self.channelBlId:
+            return
 
         # Prevent bots from triggering your highlight word.
         if user.bot:
@@ -588,4 +620,6 @@ def setup(bot):
                                                datefmt="[%d/%m/%Y %H:%M:%S]"))
         LOGGER.addHandler(handler)
     bot.add_listener(hilite.checkHighlights, 'on_message')
+    bot.add_listener(hilite.checkForDarkHourCreation, 'on_channel_create')
+    bot.add_listener(hilite.checkForDarkHourDeletion, 'on_channel_delete')
     bot.add_cog(hilite)
