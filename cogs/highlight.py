@@ -38,7 +38,7 @@ def checkFilesystem():
         print("Creating default highlight settings.json...")
         dataIO.save_json(theFile, {})
 
-class Highlight:
+class Highlight: # pylint: disable=too-many-instance-attributes
     """Slack-like feature to be notified based on specific words."""
     def __init__(self, bot):
         self.bot = bot
@@ -51,7 +51,7 @@ class Highlight:
         self.channelBlId = self.settings.get(KEY_IGNORE, None)
         self.lastTriggered = {}
         self.triggeredLock = Lock()
-        
+
         # previously: dataIO.load_json("data/highlight/words.json")
         self.wordFilter = None
 
