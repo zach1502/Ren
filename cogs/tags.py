@@ -298,6 +298,7 @@ class Tags:
         create can only be accessed in the server that it was created in.
         """
         if await self.user_exceeds_tag_limit(ctx):
+            limit = self.settings.get(KEY_MAX, DEFAULT_MAX)
             await self.bot.say("You have too many commands. The maximum number of commands "
                                "per user is {}, please delete some first!".format(limit))
             return
@@ -414,6 +415,7 @@ class Tags:
         create command.
         """
         if await self.user_exceeds_tag_limit(ctx):
+            limit = self.settings.get(KEY_MAX, DEFAULT_MAX)
             await self.bot.say("You have too many commands. The maximum number of commands "
                                "per user is {}, please delete some first!".format(limit))
             return
