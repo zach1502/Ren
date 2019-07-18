@@ -420,6 +420,9 @@ class Highlight: # pylint: disable=too-many-instance-attributes
 
     async def checkForDarkHourCreation(self, channel):
         """Background listener to check if dark-hour has been created"""
+        #filter private  DMs
+        if channel.is_private:
+            return
         chName = str(self.bot.get_channel(channel.id))
         LOGGER.info("New Channel creation has been detected. Name: %s, ID: %s",
                     chName, channel.id)
@@ -435,6 +438,9 @@ class Highlight: # pylint: disable=too-many-instance-attributes
 
     async def checkForDarkHourDeletion(self, channel):
         """Background listener to check if dark-hour has been deleted"""
+        #filter private DMs
+        if channel.is_private:
+            return
         if self.channelBlId and str(channel.id) == self.channelBlId:
             self.channelBlId = None
             LOGGER.info("Dark hour deletion has been detected and channelBlId has"
