@@ -18,8 +18,10 @@ from redbot.core.commands.context import Context
 from redbot.core.utils import chat_formatting
 
 DEFAULT_TIMEOUT = 20
-MAX_WORDS = 20
+MAX_WORDS_HIGHLIGHT = 20
+MAX_WORDS_IGNORE = 20
 KEY_BLACKLIST = "blacklist"
+KEY_IGNORE = "ignoreWords"
 KEY_TIMEOUT = "timeout"
 KEY_WORDS = "words"
 KEY_IGNORE = "ignoreChannelID"
@@ -27,6 +29,7 @@ KEY_IGNORE = "ignoreChannelID"
 BASE_GUILD_MEMBER = \
 {
  KEY_BLACKLIST: [],
+ KEY_IGNORE: [],
  KEY_TIMEOUT: DEFAULT_TIMEOUT,
  KEY_WORDS: []
 }
@@ -97,15 +100,15 @@ class Highlight(commands.Cog):
         userName = ctx.message.author.name
 
         async with self.config.member(ctx.author).words() as userWords:
-            if len(userWords) < MAX_WORDS and word not in userWords:
-                # user can only have MAX_WORDS words
+            if len(userWords) < MAX_WORDS_HIGHLIGHT and word not in userWords:
+                # user can only have MAX_WORDS_HIGHLIGHT words
                 userWords.append(word)
                 confMsg = await ctx.send("Highlight word added, {}".format(userName))
             else:
                 confMsg = await ctx.send("Sorry {}, you already have {} words "
                                          "highlighted, or you are trying to add "
                                          "a duplicate word".format(userName,
-                                                                   MAX_WORDS))
+                                                                   MAX_WORDS_HIGHLIGHT))
         await ctx.message.delete()
         await self._sleepThenDelete(confMsg, 5)
 
@@ -246,6 +249,82 @@ class Highlight(commands.Cog):
                                          "currently".format(userName))
             await self._sleepThenDelete(confMsg, 5)
 
+    @highlight.group(name="ignore")
+    @commands.guild_only()
+    async def wordIgnore(self, ctx: Context):
+        """Ignore certain words to avoid having them trigger your DMs.
+
+        Suppose you have a word X in your highlighted words, and a word Y you are
+        ignoring.  Then, we have some scenarios as below:
+        - "X something something": triggers DM.
+        - "X Y": does NOT triggers DM.
+        - "X something something Y": does NOT trigger DM.
+        """
+
+    @wordIgnore.command(name="add")
+    @commands.guild_only()
+    async def wordIgnoreAdd(self, ctx: Context, *, word: str):
+        """Add words to your ignore list.
+
+        Parameters:
+        -----------
+        word: str
+            The word you wish to ignore.
+        """
+        userName = ctx.message.author.name
+
+        async with self.config.member(ctx.author).ignoreWords() as ignoreWords:
+            if len(ignoreWords) < MAX_WORDS_IGNORE and word not in ignoreWords:
+                ignoreWords.append(word)
+                confMsg = await ctx.send("{} added to the ignore list, "
+                                         "{}".format(word, userName))
+            else:
+                confMsg = await ctx.send("Sorry {}, you are already ignoring {} "
+                                         "words, or you are trying to add a "
+                                         "duplicate word".format(userName,
+                                                                 MAX_WORDS_IGNORE))
+        await ctx.message.delete()
+        await self._sleepThenDelete(confMsg, 5)
+
+    @wordIgnore.command(name="del", aliases=["delete", "remove", "rm"])
+    @commands.guild_only()
+    async def wordIgnoreRemove(self, ctx: Context, *, word: str):
+        """Remove an ignored word from the list."""
+        userName = ctx.message.author.name
+
+        async with self.config.member(ctx.author).ignoreWords() as ignoreWords:
+            if word in ignoreWords:
+                ignoreWords.remove(word)
+                confMsg = await ctx.send("{} removed from the ignore list, "
+                                         "{}".format(word, userName))
+            else:
+                confMsg = await ctx.send("You are not currently ignoring this word!")
+        await ctx.message.delete()
+        await self._sleepThenDelete(confMsg, 5)
+
+    @wordIgnore.command(name="list", aliases=["ls"])
+    @commands.guild_only()
+    async def wordIgnoreList(self, ctx: Context):
+        """List ignored words."""
+        userName = ctx.message.author.name
+
+        async with self.config.member(ctx.author).ignoreWords() as userWords:
+            if userWords:
+                msg = ""
+                for word in userWords:
+                    msg += "{}\n".format(word)
+
+                embed = discord.Embed(description=msg,
+                                      colour=discord.Colour.red())
+                embed.set_author(name=ctx.message.author.name,
+                                 icon_url=ctx.message.author.avatar_url)
+                await ctx.message.author.send(embed=embed)
+                confMsg = await ctx.send("Please check your DMs.")
+            else:
+                confMsg = await ctx.send("Sorry {}, you currently do not have any "
+                                         "ignored words.".format(userName))
+        await self._sleepThenDelete(confMsg, 5)
+
     @highlight.command(name="timeout")
     @commands.guild_only()
     async def setTimeout(self, ctx: Context, seconds: int):
@@ -274,7 +353,6 @@ class Highlight(commands.Cog):
         confMsg = await ctx.send("Timeout set to {} seconds.".format(seconds))
         await ctx.message.delete()
         await self._sleepThenDelete(confMsg, 5)
-
 
     def _triggeredRecently(self, msg, uid, timeout=DEFAULT_TIMEOUT):
         """See if a user has been recently triggered.
@@ -382,10 +460,27 @@ class Highlight(commands.Cog):
         # Iterate through every user's words on the guild, and notify all highlights
         guildData = await self.config.all_members(msg.guild)
         for currentUserId, data in guildData.items():
+            self.logger.debug("User ID: %s", currentUserId)
+            isWordIgnored = False
+
             # Handle case where message author has been blacklisted by the user.
             if KEY_BLACKLIST in data.keys() and msg.author.id in data[KEY_BLACKLIST]:
                 continue
 
+            # Handle case where message contains words being ignored byu the user.
+            if KEY_IGNORE in data.keys():
+                for word in data[KEY_IGNORE]:
+                    if _isWordMatch(word, msg.content):
+                        self.logger.debug("%s is being ignored, skipping user.", word)
+                        isWordIgnored = True
+                        break
+
+            if isWordIgnored:
+                continue
+
+            # If we reach this point, then the message is not from a user that has been
+            # blacklisted, nor does the message contain any ignored words, so now we can
+            # check to see if there is anything that needs to be highlighted.
             for word in data[KEY_WORDS]:
                 active = _isActive(currentUserId, msg, activeMessages)
                 match = _isWordMatch(word, msg.content)
