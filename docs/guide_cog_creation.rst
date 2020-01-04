@@ -3,9 +3,9 @@
 .. role:: python(code)
     :language: python
 
-====================
-Creating cogs for V3
-====================
+========================
+Creating cogs for Red V3
+========================
 
 This guide serves as a tutorial on creating cogs for Red V3.
 It will cover the basics of setting up a package for your
@@ -21,7 +21,7 @@ To start off, be sure that you have installed Python 3.7.
 Next, you need to decide if you want to develop against the Stable or Develop version of Red.
 Depending on what your goal is should help determine which version you need.
 
-.. attention:: 
+.. attention::
     The Develop version may have changes on it which break compatibility with the Stable version and other cogs.
     If your goal is to support both versions, make sure you build compatibility layers or use separate branches to keep compatibility until the next Red release
 
@@ -135,6 +135,12 @@ have successfully created a cog!
     to load them
     
     You can also take a look at `our cookiecutter <https://github.com/Cog-Creators/cog-cookiecutter>`_, for help creating the right structure.
+
+-------------------
+Publishing your cog
+-------------------
+
+Go to :doc:`/guide_publish_cogs`
 
 --------------------
 Additional resources

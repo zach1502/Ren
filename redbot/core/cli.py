@@ -4,6 +4,8 @@ import logging
 import sys
 from typing import Optional
 
+from discord import __version__ as discord_version
+
 
 def confirm(text: str, default: Optional[bool] = None) -> bool:
     if default is None:
@@ -31,22 +33,26 @@ def confirm(text: str, default: Optional[bool] = None) -> bool:
         print("Error: invalid input")
 
 
-def interactive_config(red, token_set, prefix_set, *, print_header=True):
-    loop = asyncio.get_event_loop()
-    token = ""
+async def interactive_config(red, token_set, prefix_set, *, print_header=True):
+    token = None
 
     if print_header:
         print("Red - Discord Bot | Configuration process\n")
 
     if not token_set:
-        print("Please enter a valid token:")
+        print(
+            "Please enter a valid token.\n"
+            "You can find out how to obtain a token with this guide"
+            ' (section "Creating a Bot Account"):\n'
+            f"https://discordpy.readthedocs.io/en/v{discord_version}/discord.html#creating-a-bot-account"
+        )
         while not token:
             token = input("> ")
             if not len(token) >= 50:
                 print("That doesn't look like a valid token.")
-                token = ""
+                token = None
             if token:
-                loop.run_until_complete(red._config.token.set(token))
+                await red._config.token.set(token)
 
     if not prefix_set:
         prefix = ""
@@ -63,7 +69,7 @@ def interactive_config(red, token_set, prefix_set, *, print_header=True):
                 if not confirm("Your prefix seems overly long. Are you sure that it's correct?"):
                     prefix = ""
             if prefix:
-                loop.run_until_complete(red._config.prefix.set([prefix]))
+                await red._config.prefix.set([prefix])
 
     return token
 
@@ -73,6 +79,7 @@ def parse_cli_flags(args):
         description="Red - Discord Bot", usage="redbot <instance_name> [arguments]"
     )
     parser.add_argument("--version", "-V", action="store_true", help="Show Red's current version")
+    parser.add_argument("--debuginfo", action="store_true", help="Show debug information.")
     parser.add_argument(
         "--list-instances",
         action="store_true",
