@@ -12,7 +12,6 @@ from typing import Dict, Any, Optional, Union
 import appdirs
 import click
 
-import redbot.logging
 from redbot.core.utils._internal_utils import safe_delete, create_backup as red_create_backup
 from redbot.core import config, data_manager, drivers
 from redbot.core.drivers import BackendType, IdentifierData
@@ -111,7 +110,10 @@ def get_storage_type():
         print()
         print("Please choose your storage backend (if you're unsure, choose 1).")
         print("1. JSON (file storage, requires no database).")
-        print("2. PostgreSQL")
+        print(
+            "2. PostgreSQL (Requires a database server)"
+            "\n(Warning: You cannot convert postgres instances to other backends yet)"
+        )
         storage = input("> ")
         try:
             storage = int(storage)
@@ -197,7 +199,7 @@ def get_target_backend(backend) -> BackendType:
 async def do_migration(
     current_backend: BackendType, target_backend: BackendType
 ) -> Dict[str, Any]:
-    cur_driver_cls = drivers.get_driver_class(current_backend)
+    cur_driver_cls = drivers._get_driver_class_include_old(current_backend)
     new_driver_cls = drivers.get_driver_class(target_backend)
     cur_storage_details = data_manager.storage_details()
     new_storage_details = new_driver_cls.get_config_details()
@@ -295,7 +297,15 @@ async def remove_instance_interaction():
 def cli(ctx, debug):
     """Create a new instance."""
     level = logging.DEBUG if debug else logging.INFO
-    redbot.logging.init_logging(level=level, location=Path.cwd() / "red_setup_logs")
+    base_logger = logging.getLogger("red")
+    base_logger.setLevel(level)
+    formatter = logging.Formatter(
+        "[{asctime}] [{levelname}] {name}: {message}", datefmt="%Y-%m-%d %H:%M:%S", style="{"
+    )
+    stdout_handler = logging.StreamHandler(sys.stdout)
+    stdout_handler.setFormatter(formatter)
+    base_logger.addHandler(stdout_handler)
+
     if ctx.invoked_subcommand is None:
         basic_setup()
 
@@ -368,7 +378,7 @@ def delete(
 
 @cli.command()
 @click.argument("instance", type=click.Choice(instance_list))
-@click.argument("backend", type=click.Choice(["json", "postgres"]))
+@click.argument("backend", type=click.Choice(["json"]))  # TODO: GH-3115
 def convert(instance, backend):
     """Convert data backend of an instance."""
     current_backend = get_current_backend(instance)
@@ -380,8 +390,10 @@ def convert(instance, backend):
 
     loop = asyncio.get_event_loop()
 
-    if current_backend in (BackendType.MONGOV1, BackendType.MONGO):
+    if current_backend == BackendType.MONGOV1:
         raise RuntimeError("Please see the 3.2 release notes for upgrading a bot using mongo.")
+    elif current_backend == BackendType.POSTGRES:  # TODO: GH-3115
+        raise RuntimeError("Converting away from postgres isn't currently supported")
     else:
         new_storage_details = loop.run_until_complete(do_migration(current_backend, target))
 
@@ -411,10 +423,15 @@ def backup(instance: str, destination_folder: Union[str, Path]) -> None:
     loop.run_until_complete(create_backup(instance, Path(destination_folder)))
 
 
-if __name__ == "__main__":
+def run_cli():
+    # Setuptools entry point script stuff...
     try:
         cli()  # pylint: disable=no-value-for-parameter  # click
     except KeyboardInterrupt:
         print("Exiting...")
     else:
         print("Exiting...")
+
+
+if __name__ == "__main__":
+    run_cli()

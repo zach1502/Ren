@@ -2,10 +2,12 @@ import asyncio
 import inspect
 import logging
 import os
+import platform
+import shutil
 import sys
 from collections import namedtuple
 from datetime import datetime
-from enum import Enum
+from enum import IntEnum
 from importlib.machinery import ModuleSpec
 from pathlib import Path
 from typing import Optional, Union, List, Dict, NoReturn
@@ -17,6 +19,7 @@ from discord.ext.commands import when_mentioned_or
 from . import Config, i18n, commands, errors, drivers, modlog, bank
 from .cog_manager import CogManager, CogManagerUI
 from .core_commands import license_info_command, Core
+from .data_manager import cog_data_path
 from .dev_commands import Dev
 from .events import init_events
 from .global_checks import init_global_checks
@@ -79,6 +82,9 @@ class RedBase(commands.GroupMixin, commands.bot.BotBase, RPCMixin):  # pylint: d
             disabled_command_msg="That command is disabled.",
             extra_owner_destinations=[],
             owner_opt_out_list=[],
+            last_system_info__python_version=[3, 7],
+            last_system_info__machine=None,
+            last_system_info__system=None,
             schema_version=0,
         )
 
@@ -126,10 +132,6 @@ class RedBase(commands.GroupMixin, commands.bot.BotBase, RPCMixin):  # pylint: d
         if cli_flags.owner and "owner_id" not in kwargs:
             kwargs["owner_id"] = cli_flags.owner
 
-        if "owner_id" not in kwargs:
-            loop = asyncio.get_event_loop()
-            loop.run_until_complete(self._dict_abuse(kwargs))
-
         if "command_not_found" not in kwargs:
             kwargs["command_not_found"] = "Command {} not found.\n{}"
 
@@ -146,6 +148,7 @@ class RedBase(commands.GroupMixin, commands.bot.BotBase, RPCMixin):  # pylint: d
         self.add_command(commands.help.red_help)
 
         self._permissions_hooks: List[commands.CheckPredicate] = []
+        self._red_ready = asyncio.Event()
 
     @property
     def cog_mgr(self) -> NoReturn:
@@ -401,6 +404,12 @@ class RedBase(commands.GroupMixin, commands.bot.BotBase, RPCMixin):  # pylint: d
         init_global_checks(self)
         init_events(self, cli_flags)
 
+        if self.owner_id is None:
+            self.owner_id = await self._config.owner()
+
+        i18n_locale = await self._config.locale()
+        i18n.set_locale(i18n_locale)
+
         self.add_cog(Core(self))
         self.add_cog(CogManagerUI())
         self.add_command(license_info_command)
@@ -412,11 +421,70 @@ class RedBase(commands.GroupMixin, commands.bot.BotBase, RPCMixin):  # pylint: d
 
         packages = []
 
-        if cli_flags.no_cogs is False:
-            packages.extend(await self._config.packages())
+        last_system_info = await self._config.last_system_info()
 
-        if cli_flags.load_cogs:
-            packages.extend(cli_flags.load_cogs)
+        async def notify_owners(content: str) -> None:
+            destinations = await self.get_owner_notification_destinations()
+            for destination in destinations:
+                prefixes = await self.get_valid_prefixes(getattr(destination, "guild", None))
+                prefix = prefixes[0]
+                try:
+                    await destination.send(content.format(prefix=prefix))
+                except Exception as _exc:
+                    log.exception(
+                        f"I could not send an owner notification to ({destination.id}){destination}"
+                    )
+
+        ver_info = list(sys.version_info[:2])
+        python_version_changed = False
+        LIB_PATH = cog_data_path(raw_name="Downloader") / "lib"
+        if ver_info != last_system_info["python_version"]:
+            await self._config.last_system_info.python_version.set(ver_info)
+            if any(LIB_PATH.iterdir()):
+                shutil.rmtree(str(LIB_PATH))
+                LIB_PATH.mkdir()
+                self.loop.create_task(
+                    notify_owners(
+                        "We detected a change in minor Python version"
+                        " and cleared packages in lib folder.\n"
+                        "The instance was started with no cogs, please load Downloader"
+                        " and use `{prefix}cog reinstallreqs` to regenerate lib folder."
+                        " After that, restart the bot to get"
+                        " all of your previously loaded cogs loaded again."
+                    )
+                )
+                python_version_changed = True
+        else:
+            if cli_flags.no_cogs is False:
+                packages.extend(await self._config.packages())
+
+            if cli_flags.load_cogs:
+                packages.extend(cli_flags.load_cogs)
+
+        system_changed = False
+        machine = platform.machine()
+        system = platform.system()
+        if last_system_info["machine"] is None:
+            await self._config.last_system_info.machine.set(machine)
+        elif last_system_info["machine"] != machine:
+            await self._config.last_system_info.machine.set(machine)
+            system_changed = True
+
+        if last_system_info["system"] is None:
+            await self._config.last_system_info.system.set(system)
+        elif last_system_info["system"] != system:
+            await self._config.last_system_info.system.set(system)
+            system_changed = True
+
+        if system_changed and not python_version_changed:
+            self.loop.create_task(
+                notify_owners(
+                    "We detected a possible change in machine's operating system"
+                    " or architecture. You might need to regenerate your lib folder"
+                    " if 3rd-party cogs stop working properly.\n"
+                    "To regenerate lib folder, load Downloader and use `{prefix}cog reinstallreqs`."
+                )
+            )
 
         if packages:
             # Load permissions first, for security reasons
@@ -460,17 +528,6 @@ class RedBase(commands.GroupMixin, commands.bot.BotBase, RPCMixin):  # pylint: d
         Invokes Red's helpformatter for a given context and object.
         """
         return await self._help_formatter.send_help(ctx, help_for)
-
-    async def _dict_abuse(self, indict):
-        """
-        Please blame <@269933075037814786> for this.
-
-        :param indict:
-        :return:
-        """
-
-        indict["owner_id"] = await self._config.owner()
-        i18n.set_locale(await self._config.locale())
 
     async def embed_requested(self, channel, user, command=None) -> bool:
         """
@@ -588,9 +645,9 @@ class RedBase(commands.GroupMixin, commands.bot.BotBase, RPCMixin):  # pylint: d
         """
         Sets shared API tokens for a service
 
-        In most cases, this should not be used. Users should instead be using the 
+        In most cases, this should not be used. Users should instead be using the
         ``set api`` command
-    
+
         This will not clear existing values not specified.
 
         Parameters
@@ -942,6 +999,7 @@ class RedBase(commands.GroupMixin, commands.bot.BotBase, RPCMixin):  # pylint: d
         """
         Gets the users and channels to send to
         """
+        await self.wait_until_red_ready()
         destinations = []
         opt_outs = await self._config.owner_opt_out_list()
         for user_id in (self.owner_id, *self._co_owners):
@@ -949,12 +1007,24 @@ class RedBase(commands.GroupMixin, commands.bot.BotBase, RPCMixin):  # pylint: d
                 user = self.get_user(user_id)
                 if user:
                     destinations.append(user)
+                else:
+                    log.warning(
+                        "Owner with ID %s is missing in user cache,"
+                        " ignoring owner notification destination.",
+                        user_id,
+                    )
 
         channel_ids = await self._config.extra_owner_destinations()
         for channel_id in channel_ids:
             channel = self.get_channel(channel_id)
             if channel:
                 destinations.append(channel)
+            else:
+                log.warning(
+                    "Channel with ID %s is not available,"
+                    " ignoring owner notification destination.",
+                    channel_id,
+                )
 
         return destinations
 
@@ -978,6 +1048,10 @@ class RedBase(commands.GroupMixin, commands.bot.BotBase, RPCMixin):  # pylint: d
 
         sends = [wrapped_send(d, content, **kwargs) for d in destinations]
         await asyncio.gather(*sends)
+
+    async def wait_until_red_ready(self):
+        """Wait until our post connection startup is done."""
+        await self._red_ready.wait()
 
 
 class Red(RedBase, discord.AutoShardedClient):
@@ -1015,7 +1089,9 @@ class Red(RedBase, discord.AutoShardedClient):
         sys.exit(self._shutdown_mode)
 
 
-class ExitCodes(Enum):
+class ExitCodes(IntEnum):
+    # This needs to be an int enum to be used
+    # with sys.exit
     CRITICAL = 1
     SHUTDOWN = 0
     RESTART = 26

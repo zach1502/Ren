@@ -28,7 +28,7 @@ Then run each of the following commands:
     iex ((New-Object System.Net.WebClient).DownloadString('https://chocolatey.org/install.ps1'))
     choco install git --params "/GitOnlyOnPath /WindowsTerminal" -y
     choco install visualstudio2019-workload-vctools -y
-    choco install python3 --version=3.8.1 -y
+    choco install python3 -y
 
 For Audio support, you should also run the following command before exiting:
 
@@ -64,6 +64,13 @@ Manually installing dependencies
 
 .. _installing-red-windows:
 
+------------------------------
+Creating a Virtual Environment
+------------------------------
+
+We require installing Red into a virtual environment. Don't be scared, it's very
+straightforward. See the section `installing-in-virtual-environment`.
+
 --------------
 Installing Red
 --------------
@@ -72,42 +79,22 @@ Installing Red
                for the PATH changes to take effect.
 
 1. Open a command prompt (open Start, search for "command prompt", then click it)
-2. Create and activate a virtual environment (strongly recommended), see the section `using-venv`
-3. Run **one** of the following commands, depending on what extras you want installed
-
-  .. note::
-
-      If you're not inside an activated virtual environment, use ``py -3.8`` in place of
-      ``python``, and include the ``--user`` flag with all ``pip install`` commands, like this:
-
-      .. code-block:: none
-
-          py -3.8 -m pip install --user -U Red-DiscordBot
+2. Run **one** of the following set of commands, depending on what extras you want installed
 
   * Normal installation:
 
     .. code-block:: none
 
+        python -m pip install -U pip setuptools wheel
         python -m pip install -U Red-DiscordBot
 
   * With PostgreSQL support:
 
     .. code-block:: none
 
-        python3.8 -m pip install -U Red-DiscordBot[postgres]
+        python -m pip install -U pip setuptools wheel
+        python -m pip install -U Red-DiscordBot[postgres]
 
-  .. note::
-
-      To install the development version, replace ``Red-DiscordBot`` in the above commands with the
-      link below. **The development version of the bot contains experimental changes. It is not
-      intended for normal users.** We will not support anyone using the development version in any
-      support channels. Using the development version may break third party cogs and not all core
-      commands may work. Downgrading to stable after installing the development version may cause
-      data loss, crashes or worse.
-
-      .. code-block:: none
-
-          git+https://github.com/Cog-Creators/Red-DiscordBot@V3/develop#egg=Red-DiscordBot
 
 --------------------------
 Setting Up and Running Red

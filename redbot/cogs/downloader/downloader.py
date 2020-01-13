@@ -50,12 +50,17 @@ class Downloader(commands.Cog):
         self.SHAREDLIB_PATH = self.LIB_PATH / "cog_shared"
         self.SHAREDLIB_INIT = self.SHAREDLIB_PATH / "__init__.py"
 
+        self._create_lib_folder()
+
+        self._repo_manager = RepoManager()
+
+    def _create_lib_folder(self, *, remove_first: bool = False) -> None:
+        if remove_first:
+            shutil.rmtree(str(self.LIB_PATH))
         self.SHAREDLIB_PATH.mkdir(parents=True, exist_ok=True)
         if not self.SHAREDLIB_INIT.exists():
             with self.SHAREDLIB_INIT.open(mode="w", encoding="utf-8") as _:
                 pass
-
-        self._repo_manager = RepoManager()
 
     async def initialize(self) -> None:
         await self._repo_manager.initialize()
@@ -553,6 +558,59 @@ class Downloader(commands.Cog):
         """Cog installation management commands."""
         pass
 
+    @cog.command(name="reinstallreqs")
+    async def _cog_reinstallreqs(self, ctx: commands.Context) -> None:
+        """
+        This command will reinstall cog requirements and shared libraries for all installed cogs.
+
+        Red might ask user to use this when it clears contents of lib folder
+        because of change in minor version of Python.
+        """
+        async with ctx.typing():
+            self._create_lib_folder(remove_first=True)
+            installed_cogs = await self.installed_cogs()
+            cogs = []
+            repos = set()
+            for cog in installed_cogs:
+                if cog.repo is None:
+                    continue
+                repos.add(cog.repo)
+                cogs.append(cog)
+            failed_reqs = await self._install_requirements(cogs)
+            all_installed_libs: List[InstalledModule] = []
+            all_failed_libs: List[Installable] = []
+            for repo in repos:
+                installed_libs, failed_libs = await repo.install_libraries(
+                    target_dir=self.SHAREDLIB_PATH, req_target_dir=self.LIB_PATH
+                )
+                all_installed_libs += installed_libs
+                all_failed_libs += failed_libs
+        message = ""
+        if failed_reqs:
+            message += _("Failed to install requirements: ") + humanize_list(
+                tuple(map(inline, failed_reqs))
+            )
+        if all_failed_libs:
+            libnames = [lib.name for lib in failed_libs]
+            message += _("\nFailed to install shared libraries: ") + humanize_list(
+                tuple(map(inline, libnames))
+            )
+        if message:
+            await ctx.send(
+                _(
+                    "Cog requirements and shared libraries for all installed cogs"
+                    " have been reinstalled but there were some errors:\n"
+                )
+                + message
+            )
+        else:
+            await ctx.send(
+                _(
+                    "Cog requirements and shared libraries"
+                    " for all installed cogs have been reinstalled."
+                )
+            )
+
     @cog.command(name="install", usage="<repo_name> <cogs>")
     async def _cog_install(self, ctx: commands.Context, repo: Repo, *cog_names: str) -> None:
         """Install a cog from the given repo."""
@@ -690,11 +748,15 @@ class Downloader(commands.Cog):
                 message += _("Successfully uninstalled cogs: ") + humanize_list(uninstalled_cogs)
             if failed_cogs:
                 message += (
-                    _("\nThese cog were installed but can no longer be located: ")
+                    _(
+                        "\nDownloader has removed these cogs from the installed cogs list"
+                        " but it wasn't able to find their files: "
+                    )
                     + humanize_list(tuple(map(inline, failed_cogs)))
                     + _(
-                        "\nYou may need to remove their files manually if they are still usable."
-                        " Also make sure you've unloaded those cogs with `{prefix}unload {cogs}`."
+                        "\nThey were most likely removed without using `{prefix}cog uninstall`.\n"
+                        "You may need to remove those files manually if the cogs are still usable."
+                        " If so, ensure the cogs have been unloaded with `{prefix}unload {cogs}`."
                     ).format(prefix=ctx.prefix, cogs=" ".join(failed_cogs))
                 )
         await ctx.send(message)
@@ -1036,7 +1098,7 @@ class Downloader(commands.Cog):
         if name_already_used:
             message += _(
                 "\nSome cogs with these names are already installed from different repos: "
-            ) + humanize_list(already_installed)
+            ) + humanize_list(name_already_used)
         correct_cogs, add_to_message = self._filter_incorrect_cogs(cogs)
         if add_to_message:
             return correct_cogs, f"{message}{add_to_message}"
@@ -1223,6 +1285,7 @@ class Downloader(commands.Cog):
 
         """
         if isinstance(cog_installable, Installable):
+            is_installable = True
             made_by = ", ".join(cog_installable.author) or _("Missing from info.json")
             repo_url = (
                 _("Missing from installed repos")
@@ -1231,6 +1294,7 @@ class Downloader(commands.Cog):
             )
             cog_name = cog_installable.name
         else:
+            is_installable = False
             made_by = "26 & co."
             repo_url = "https://github.com/Cog-Creators/Red-DiscordBot"
             cog_name = cog_installable.__class__.__name__
@@ -1238,7 +1302,7 @@ class Downloader(commands.Cog):
         msg = _(
             "Command: {command}\nCog name: {cog}\nMade by: {author}\nRepo: {repo_url}\n"
         ).format(command=command_name, author=made_by, repo_url=repo_url, cog=cog_name)
-        if cog_installable.repo is not None and cog_installable.repo.branch:
+        if is_installable and cog_installable.repo is not None and cog_installable.repo.branch:
             msg += _("Repo branch: {branch_name}\n").format(
                 branch_name=cog_installable.repo.branch
             )
