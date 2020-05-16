@@ -15,7 +15,8 @@ from redbot.core.commands.context import Context
 
 KEY_SETTINGS = "settings"
 KEY_ARCHIVE = "archive"
-KEY_CH_ID = "channel"
+KEY_CH_ID = "channelText"
+KEY_CH_VC_ID = "channelVoice"
 KEY_CH_TOPIC = "channelTopic"
 KEY_CH_NAME = "channelName"
 KEY_CH_POS = "channelPosition"
@@ -41,10 +42,13 @@ MAX_CH_POS = 100
 MAX_CH_TOPIC = 1024
 
 PERMS_READ_Y = discord.PermissionOverwrite(read_messages=True,
+                                           connect=True,
                                            add_reactions=False)
 PERMS_READ_N = discord.PermissionOverwrite(read_messages=False,
+                                           connect=False,
                                            add_reactions=False)
 PERMS_SEND_N = discord.PermissionOverwrite(send_messages=False,
+                                           speak=False,
                                            add_reactions=False)
 
 SLEEP_TIME = 15  # Background loop sleep time in seconds
@@ -54,6 +58,7 @@ DEFAULT_GUILD = \
 {
     KEY_ARCHIVE: False,
     KEY_CH_ID: None,
+    KEY_CH_VC_ID: None,
     KEY_CH_NAME: "temp-channel",
     KEY_CH_TOPIC: "Created with the TempChannels cog!",
     KEY_CH_POS: 0,
@@ -509,7 +514,12 @@ class TempChannels(commands.Cog):
                 # Channel created, see when we should delete it.
                 try:
                     chanObj = self.bot.get_channel(guildData[KEY_CH_ID])
-                    await chanObj.delete()
+                    if chanObj:
+                        await chanObj.delete()
+                    if guildData[KEY_CH_VC_ID]:
+                        chanObj = self.bot.get_channel(guildData[KEY_CH_VC_ID])
+                        if chanObj:
+                            await chanObj.delete()
                 except discord.DiscordException:
                     self.logger.error("Could not delete channel!",
                                       exc_info=True)
@@ -519,6 +529,7 @@ class TempChannels(commands.Cog):
                         "check the console log for details.")
                 else:
                     guildData[KEY_CH_ID] = None
+                    guildData[KEY_CH_VC_ID] = None
                     guildData[KEY_CH_CREATED] = False
                     self.logger.info(
                         "%s (%s) deleted the temp channel #%s (%s) in %s (%s).",
@@ -591,7 +602,8 @@ class TempChannels(commands.Cog):
                                     elif role:
                                         self.logger.debug("Updating role")
                                         permsDict[role].update(
-                                            send_messages=False)
+                                            send_messages=False,
+                                            speak=False)
 
                             self.logger.debug(
                                 "Current permission overrides: \n%s",
@@ -623,6 +635,15 @@ class TempChannels(commands.Cog):
                             guildData[KEY_STOP_TIME] = time.time() + duration
                             guildData[KEY_CH_CREATED] = True
 
+                            chanObj = await guild.create_voice_channel(
+                                guildData[KEY_CH_NAME],
+                                overwrites=permsDict,
+                                category=category,
+                                position=guildData[KEY_CH_POS],
+                                topic=guildData[KEY_CH_TOPIC],
+                                nsfw=guildData[KEY_NSFW])
+                            guildData[KEY_CH_VC_ID] = chanObj.id
+
                         elif guildData[KEY_CH_CREATED]:
                             # Channel created, see when we should delete it.
                             if time.time() >= guildData[KEY_STOP_TIME]:
@@ -631,7 +652,10 @@ class TempChannels(commands.Cog):
                                     "and created keys.")
                                 chanObj = guild.get_channel(
                                     guildData[KEY_CH_ID])
+                                vcChanObj = guild.get_channel(
+                                    guildData[KEY_CH_VC_ID])
                                 guildData[KEY_CH_ID] = None
+                                guildData[KEY_CH_VC_ID] = None
                                 guildData[KEY_CH_CREATED] = False
 
                                 if chanObj and guildData[KEY_ARCHIVE]:
@@ -657,6 +681,8 @@ class TempChannels(commands.Cog):
                                         "Channel #%s (%s) in %s (%s) was deleted.",
                                         chanObj.name, chanObj.id, guild.name,
                                         guild.id)
+                                if vcChanObj:
+                                    await vcChanObj.delete()
                     except Exception:  # pylint: disable=broad-except
                         self.logger.error(
                             "Something went terribly wrong for server %s (%s)!",
