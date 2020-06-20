@@ -124,7 +124,6 @@ class Alias(commands.Cog):
         await menu(ctx, alias_list, DEFAULT_CONTROLS)
 
     @commands.group()
-    @commands.guild_only()
     async def alias(self, ctx: commands.Context):
         """Manage command aliases."""
         pass
@@ -157,7 +156,7 @@ class Alias(commands.Cog):
                 _(
                     "You attempted to create a new alias"
                     " with the name {name} but that"
-                    " alias already exists on this server."
+                    " alias already exists."
                 ).format(name=alias_name)
             )
             return
@@ -223,13 +222,13 @@ class Alias(commands.Cog):
             )
             return
 
-        alias = await self._aliases.get_alias(ctx.guild, alias_name)
+        alias = await self._aliases.get_alias(None, alias_name)
         if alias:
             await ctx.send(
                 _(
                     "You attempted to create a new global alias"
                     " with the name {name} but that"
-                    " alias already exists on this server."
+                    " alias already exists."
                 ).format(name=alias_name)
             )
             return
@@ -243,6 +242,13 @@ class Alias(commands.Cog):
                     " name is an invalid alias name. Alias"
                     " names may not contain spaces."
                 ).format(name=alias_name)
+            )
+            return
+
+        given_command_exists = self.bot.get_command(command.split(maxsplit=1)[0]) is not None
+        if not given_command_exists:
+            await ctx.send(
+                _("You attempted to create a new alias for a command that doesn't exist.")
             )
             return
         # endregion
@@ -259,24 +265,15 @@ class Alias(commands.Cog):
         )
 
     @alias.command(name="help")
-    @commands.guild_only()
     async def _help_alias(self, ctx: commands.Context, alias_name: str):
         """Try to execute help for the base command of the alias."""
         alias = await self._aliases.get_alias(ctx.guild, alias_name=alias_name)
         if alias:
-            if self.is_command(alias.command):
-                base_cmd = alias.command
-            else:
-                base_cmd = alias.command.rsplit(" ", 1)[0]
-
-            new_msg = copy(ctx.message)
-            new_msg.content = f"{ctx.prefix}help {base_cmd}"
-            await self.bot.process_commands(new_msg)
+            await self.bot.send_help_for(ctx, alias.command)
         else:
             await ctx.send(_("No such alias exists."))
 
     @alias.command(name="show")
-    @commands.guild_only()
     async def _show_alias(self, ctx: commands.Context, alias_name: str):
         """Show what command the alias executes."""
         alias = await self._aliases.get_alias(ctx.guild, alias_name)
