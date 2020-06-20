@@ -12,6 +12,7 @@ _ = Translator("Starboard", __file__)
 listener = getattr(commands.Cog, "listener", None)  # red 3.0 backwards compatibility support
 
 if listener is None:  # thanks Sinbad
+
     def listener(name=None):
         return lambda x: x
 
@@ -21,6 +22,7 @@ class Starboard(commands.Cog):
     """
         Create a starboard to *pin* those special comments
     """
+
     __version__ = "2.1.2"
     __author__ = "TrustyJAID"
 
@@ -275,9 +277,7 @@ class Starboard(commands.Cog):
             await ctx.send(error_msg)
             return
         if not await self.check_channel(starboard, channel):
-            error_msg = _(
-                "This channel is either blacklisted or not in the whitelisted channels."
-            )
+            error_msg = _("This channel is either blacklisted or not in the whitelisted channels.")
             await ctx.send(error_msg)
             return
         count = 1
@@ -561,8 +561,7 @@ class Starboard(commands.Cog):
             starboard.colour = colour.value
         await self.save_starboard(guild, starboard)
         msg = _("Starboard `{name}` colour set to `{colour}`.").format(
-            name=starboard.name,
-            colour=starboard.colour
+            name=starboard.name, colour=starboard.colour
         )
         await ctx.send(msg)
 

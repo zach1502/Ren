@@ -19,7 +19,7 @@ class Imdb(BaseCog):
     async def movie(self, ctx, title):
         """Search a movie"""
 
-        titlesearch = title.replace(' ', '_')
+        titlesearch = title.replace(" ", "_")
 
         # Get API key
         apikey = await self.config.apikey()
@@ -32,15 +32,18 @@ class Imdb(BaseCog):
 
         # Queries api for a game
         async with aiohttp.ClientSession() as session:
-            async with session.post(f"http://www.omdbapi.com/?apikey={apikey}&s={titlesearch}&plot=short", headers=headers) as response:
+            async with session.post(
+                f"http://www.omdbapi.com/?apikey={apikey}&s={titlesearch}&plot=short",
+                headers=headers,
+            ) as response:
                 data = await response.json()
 
         # Handle if nothing is found
-        if data['Response'] == "False":
+        if data["Response"] == "False":
             await ctx.send("I couldn't find anything!")
             return
 
-        results = data['Search']
+        results = data["Search"]
 
         # Set variable to be appended to
         embeds = []
@@ -50,26 +53,29 @@ class Imdb(BaseCog):
 
             # Queries api for a movie information
             async with aiohttp.ClientSession() as session:
-                async with session.post(f"http://www.omdbapi.com/?apikey={apikey}&i={game['imdbID']}&plot=full", headers=headers) as response:
+                async with session.post(
+                    f"http://www.omdbapi.com/?apikey={apikey}&i={game['imdbID']}&plot=full",
+                    headers=headers,
+                ) as response:
                     data = await response.json()
 
             # Build Embed
             embed = discord.Embed()
-            embed.title = "{} ({})".format(data['Title'], data['Year'])
-            if data['imdbID']:
-               embed.url = "http://www.imdb.com/title/{}".format(data['imdbID'])
-            if data['Plot']:
-               embed.description = data['Plot'][:500]
-            if data['Poster'] != "N/A":
-               embed.set_thumbnail(url=data['Poster'])
-            if data['Runtime']:
-               embed.add_field(name="Runtime", value=data.get('Runtime', 'N/A'))
-            if data['Genre']:
-               embed.add_field(name="Genre", value=data.get('Genre', 'N/A'))
+            embed.title = "{} ({})".format(data["Title"], data["Year"])
+            if data["imdbID"]:
+                embed.url = "http://www.imdb.com/title/{}".format(data["imdbID"])
+            if data["Plot"]:
+                embed.description = data["Plot"][:500]
+            if data["Poster"] != "N/A":
+                embed.set_thumbnail(url=data["Poster"])
+            if data["Runtime"]:
+                embed.add_field(name="Runtime", value=data.get("Runtime", "N/A"))
+            if data["Genre"]:
+                embed.add_field(name="Genre", value=data.get("Genre", "N/A"))
             if data.get("BoxOffice"):
-               embed.add_field(name="Box Office", value=data.get('BoxOffice', 'N/A'))
-            if data['Metascore']:
-               embed.add_field(name="Metascore", value=data.get('Metascore', 'N/A'))
+                embed.add_field(name="Box Office", value=data.get("BoxOffice", "N/A"))
+            if data["Metascore"]:
+                embed.add_field(name="Metascore", value=data.get("Metascore", "N/A"))
             embed.set_footer(text="Powered by omdb")
             embeds.append(embed)
 
@@ -86,4 +92,3 @@ class Imdb(BaseCog):
         # Set new config
         await self.config.apikey.set(key)
         await ctx.send("The apikey has been added.")
-
