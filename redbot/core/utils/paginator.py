@@ -4,8 +4,10 @@
 import asyncio
 import discord
 
+
 class CannotPaginate(Exception):
     pass
+
 
 class Pages:
     """Implements a paginator that queries the user for the
@@ -36,6 +38,7 @@ class Pages:
     permissions: discord.Permissions
         Our permissions for the channel.
     """
+
     def __init__(self, ctx, *, entries, per_page=12, show_entry_count=True):
         self.bot = ctx.bot
         self.entries = entries
@@ -51,13 +54,13 @@ class Pages:
         self.paginating = len(entries) > per_page
         self.show_entry_count = show_entry_count
         self.reaction_emojis = [
-            ('\N{BLACK LEFT-POINTING DOUBLE TRIANGLE WITH VERTICAL BAR}', self.first_page),
-            ('\N{BLACK LEFT-POINTING TRIANGLE}', self.previous_page),
-            ('\N{BLACK RIGHT-POINTING TRIANGLE}', self.next_page),
-            ('\N{BLACK RIGHT-POINTING DOUBLE TRIANGLE WITH VERTICAL BAR}', self.last_page),
-            ('\N{INPUT SYMBOL FOR NUMBERS}', self.numbered_page ),
-            ('\N{BLACK SQUARE FOR STOP}', self.stop_pages),
-            ('\N{INFORMATION SOURCE}', self.show_help),
+            ("\N{BLACK LEFT-POINTING DOUBLE TRIANGLE WITH VERTICAL BAR}", self.first_page),
+            ("\N{BLACK LEFT-POINTING TRIANGLE}", self.previous_page),
+            ("\N{BLACK RIGHT-POINTING TRIANGLE}", self.next_page),
+            ("\N{BLACK RIGHT-POINTING DOUBLE TRIANGLE WITH VERTICAL BAR}", self.last_page),
+            ("\N{INPUT SYMBOL FOR NUMBERS}", self.numbered_page),
+            ("\N{BLACK SQUARE FOR STOP}", self.stop_pages),
+            ("\N{INFORMATION SOURCE}", self.show_help),
         ]
 
         if ctx.guild is not None:
@@ -66,41 +69,41 @@ class Pages:
             self.permissions = self.channel.permissions_for(ctx.bot.user)
 
         if not self.permissions.embed_links:
-            raise CannotPaginate('Bot does not have embed links permission.')
+            raise CannotPaginate("Bot does not have embed links permission.")
 
         if not self.permissions.send_messages:
-            raise CannotPaginate('Bot cannot send messages.')
+            raise CannotPaginate("Bot cannot send messages.")
 
         if self.paginating:
             # verify we can actually use the pagination session
             if not self.permissions.add_reactions:
-                raise CannotPaginate('Bot does not have add reactions permission.')
+                raise CannotPaginate("Bot does not have add reactions permission.")
 
             if not self.permissions.read_message_history:
-                raise CannotPaginate('Bot does not have Read Message History permission.')
+                raise CannotPaginate("Bot does not have Read Message History permission.")
 
     def get_page(self, page):
         base = (page - 1) * self.per_page
-        return self.entries[base:base + self.per_page]
+        return self.entries[base : base + self.per_page]
 
     def prepare_embed(self, entries, page, *, first=False):
         p = []
         for index, entry in enumerate(entries, 1 + ((page - 1) * self.per_page)):
-            p.append(f'{index}. {entry}')
+            p.append(f"{index}. {entry}")
 
         if self.maximum_pages > 1:
             if self.show_entry_count:
-                text = f'Page {page}/{self.maximum_pages} ({len(self.entries)} entries)'
+                text = f"Page {page}/{self.maximum_pages} ({len(self.entries)} entries)"
             else:
-                text = f'Page {page}/{self.maximum_pages}'
+                text = f"Page {page}/{self.maximum_pages}"
 
             self.embed.set_footer(text=text)
 
         if self.paginating and first:
-            p.append('')
-            p.append('Confused? React with \N{INFORMATION SOURCE} for more info.')
+            p.append("")
+            p.append("Confused? React with \N{INFORMATION SOURCE} for more info.")
 
-        self.embed.description = '\n'.join(p)
+        self.embed.description = "\n".join(p)
 
     async def show_page(self, page, *, first=False):
         self.current_page = page
@@ -116,7 +119,7 @@ class Pages:
 
         self.message = await self.channel.send(embed=self.embed)
         for (reaction, _) in self.reaction_emojis:
-            if self.maximum_pages == 2 and reaction in ('\u23ed', '\u23ee'):
+            if self.maximum_pages == 2 and reaction in ("\u23ed", "\u23ee"):
                 # no |<< or >>| buttons if we only have two pages
                 # we can't forbid it if someone ends up using it but remove
                 # it from the default set
@@ -151,17 +154,15 @@ class Pages:
     async def numbered_page(self):
         """lets you type a page number to go to"""
         to_delete = []
-        to_delete.append(await self.channel.send('What page do you want to go to?'))
+        to_delete.append(await self.channel.send("What page do you want to go to?"))
 
         def message_check(m):
-            return m.author == self.author and \
-                   self.channel == m.channel and \
-                   m.content.isdigit()
+            return m.author == self.author and self.channel == m.channel and m.content.isdigit()
 
         try:
-            msg = await self.bot.wait_for('message', check=message_check, timeout=30.0)
+            msg = await self.bot.wait_for("message", check=message_check, timeout=30.0)
         except asyncio.TimeoutError:
-            to_delete.append(await self.channel.send('Took too long.'))
+            to_delete.append(await self.channel.send("Took too long."))
             await asyncio.sleep(5)
         else:
             page = int(msg.content)
@@ -169,7 +170,9 @@ class Pages:
             if page != 0 and page <= self.maximum_pages:
                 await self.show_page(page)
             else:
-                to_delete.append(await self.channel.send(f'Invalid page given. ({page}/{self.maximum_pages})'))
+                to_delete.append(
+                    await self.channel.send(f"Invalid page given. ({page}/{self.maximum_pages})")
+                )
                 await asyncio.sleep(5)
 
         try:
@@ -179,16 +182,18 @@ class Pages:
 
     async def show_help(self):
         """shows this message"""
-        messages = ['Welcome to the interactive paginator!\n']
-        messages.append('This interactively allows you to see pages of text by navigating with ' \
-                        'reactions. They are as follows:\n')
+        messages = ["Welcome to the interactive paginator!\n"]
+        messages.append(
+            "This interactively allows you to see pages of text by navigating with "
+            "reactions. They are as follows:\n"
+        )
 
         for (emoji, func) in self.reaction_emojis:
-            messages.append(f'{emoji} {func.__doc__}')
+            messages.append(f"{emoji} {func.__doc__}")
 
-        self.embed.description = '\n'.join(messages)
+        self.embed.description = "\n".join(messages)
         self.embed.clear_fields()
-        self.embed.set_footer(text=f'We were on page {self.current_page} before this message.')
+        self.embed.set_footer(text=f"We were on page {self.current_page} before this message.")
         await self.message.edit(embed=self.embed)
 
         async def go_back_to_current_page():
@@ -226,7 +231,9 @@ class Pages:
 
         while self.paginating:
             try:
-                reaction, user = await self.bot.wait_for('reaction_add', check=self.react_check, timeout=120.0)
+                reaction, user = await self.bot.wait_for(
+                    "reaction_add", check=self.react_check, timeout=120.0
+                )
             except asyncio.TimeoutError:
                 self.paginating = False
                 try:
@@ -239,9 +246,10 @@ class Pages:
             try:
                 await self.message.remove_reaction(reaction, user)
             except:
-                pass # can't remove it so don't bother doing so
+                pass  # can't remove it so don't bother doing so
 
             await self.match()
+
 
 class FieldPages(Pages):
     """Similar to Pages except entries should be a list of
@@ -257,11 +265,12 @@ class FieldPages(Pages):
 
         if self.maximum_pages > 1:
             if self.show_entry_count:
-                text = f'Page {page}/{self.maximum_pages} ({len(self.entries)} entries)'
+                text = f"Page {page}/{self.maximum_pages} ({len(self.entries)} entries)"
             else:
-                text = f'Page {page}/{self.maximum_pages}'
+                text = f"Page {page}/{self.maximum_pages}"
 
             self.embed.set_footer(text=text)
+
 
 import itertools
 import inspect
@@ -272,21 +281,24 @@ import re
 # ?help command
 #   -> could be a subcommand
 
-_mention = re.compile(r'<@\!?([0-9]{1,19})>')
+_mention = re.compile(r"<@\!?([0-9]{1,19})>")
+
 
 def cleanup_prefix(bot, prefix):
     m = _mention.match(prefix)
     if m:
         user = bot.get_user(int(m.group(1)))
         if user:
-            return f'@{user.name} '
+            return f"@{user.name} "
     return prefix
+
 
 async def _can_run(cmd, ctx):
     try:
         return await cmd.can_run(ctx)
     except:
         return False
+
 
 def _command_signature(cmd):
     # this is modified from discord.py source
@@ -295,32 +307,35 @@ def _command_signature(cmd):
     result = [cmd.qualified_name]
     if cmd.usage:
         result.append(cmd.usage)
-        return ' '.join(result)
+        return " ".join(result)
 
     params = cmd.clean_params
     if not params:
-        return ' '.join(result)
+        return " ".join(result)
 
     for name, param in params.items():
         if param.default is not param.empty:
             # We don't want None or '' to trigger the [name=value] case and instead it should
             # do [name] since [name=None] or [name=] are not exactly useful for the user.
-            should_print = param.default if isinstance(param.default, str) else param.default is not None
+            should_print = (
+                param.default if isinstance(param.default, str) else param.default is not None
+            )
             if should_print:
-                result.append(f'[{name}={param.default!r}]')
+                result.append(f"[{name}={param.default!r}]")
             else:
-                result.append(f'[{name}]')
+                result.append(f"[{name}]")
         elif param.kind == param.VAR_POSITIONAL:
-            result.append(f'[{name}...]')
+            result.append(f"[{name}...]")
         else:
-            result.append(f'<{name}>')
+            result.append(f"<{name}>")
 
-    return ' '.join(result)
+    return " ".join(result)
+
 
 class HelpPaginator(Pages):
     def __init__(self, ctx, entries, *, per_page=4):
         super().__init__(ctx, entries=entries, per_page=per_page)
-        self.reaction_emojis.append(('\N{WHITE QUESTION MARK ORNAMENT}', self.show_bot_help))
+        self.reaction_emojis.append(("\N{WHITE QUESTION MARK ORNAMENT}", self.show_bot_help))
         self.total = len(entries)
 
     @classmethod
@@ -334,7 +349,7 @@ class HelpPaginator(Pages):
         entries = [cmd for cmd in entries if (await _can_run(cmd, ctx)) and not cmd.hidden]
 
         self = cls(ctx, entries)
-        self.title = f'{cog_name} Commands'
+        self.title = f"{cog_name} Commands"
         self.description = inspect.getdoc(cog)
         self.prefix = cleanup_prefix(ctx.bot, ctx.prefix)
 
@@ -356,9 +371,9 @@ class HelpPaginator(Pages):
         self.title = command.signature
 
         if command.description:
-            self.description = f'{command.description}\n\n{command.help}'
+            self.description = f"{command.description}\n\n{command.help}"
         else:
-            self.description = command.help or 'No help given.'
+            self.description = command.help or "No help given."
 
         self.prefix = cleanup_prefix(ctx.bot, ctx.prefix)
         await ctx.release()
@@ -367,7 +382,7 @@ class HelpPaginator(Pages):
     @classmethod
     async def from_bot(cls, ctx):
         def key(c):
-            return c.cog_name or '\u200bMisc'
+            return c.cog_name or "\u200bMisc"
 
         entries = sorted(ctx.bot.commands, key=key)
         nested_pages = []
@@ -388,9 +403,12 @@ class HelpPaginator(Pages):
             else:
                 description = inspect.getdoc(description) or discord.Embed.Empty
 
-            nested_pages.extend((cog, description, plausible[i:i + per_page]) for i in range(0, len(plausible), per_page))
+            nested_pages.extend(
+                (cog, description, plausible[i : i + per_page])
+                for i in range(0, len(plausible), per_page)
+            )
 
-        self = cls(ctx, nested_pages, per_page=1) # this forces the pagination session
+        self = cls(ctx, nested_pages, per_page=1)  # this forces the pagination session
         self.prefix = cleanup_prefix(ctx.bot, ctx.prefix)
         await ctx.release()
 
@@ -404,7 +422,7 @@ class HelpPaginator(Pages):
 
     def get_bot_page(self, page):
         cog, description, commands = self.entries[page - 1]
-        self.title = f'{cog} Commands'
+        self.title = f"{cog} Commands"
         self.description = description
         return commands
 
@@ -413,31 +431,37 @@ class HelpPaginator(Pages):
         self.embed.description = self.description
         self.embed.title = self.title
 
-        if hasattr(self, '_is_bot'):
-            value ='For more help, join the official bot support server: https://discord.gg/DWEaqMy'
-            self.embed.add_field(name='Support', value=value, inline=False)
+        if hasattr(self, "_is_bot"):
+            value = (
+                "For more help, join the official bot support server: https://discord.gg/DWEaqMy"
+            )
+            self.embed.add_field(name="Support", value=value, inline=False)
 
         self.embed.set_footer(text=f'Use "{self.prefix}help command" for more info on a command.')
 
         signature = _command_signature
 
         for entry in entries:
-            self.embed.add_field(name=signature(entry), value=entry.short_doc or "No help given", inline=False)
+            self.embed.add_field(
+                name=signature(entry), value=entry.short_doc or "No help given", inline=False
+            )
 
         if self.maximum_pages:
-            self.embed.set_author(name=f'Page {page}/{self.maximum_pages} ({self.total} commands)')
+            self.embed.set_author(name=f"Page {page}/{self.maximum_pages} ({self.total} commands)")
 
     async def show_help(self):
         """shows this message"""
 
-        self.embed.title = 'Paginator help'
-        self.embed.description = 'Hello! Welcome to the help page.'
+        self.embed.title = "Paginator help"
+        self.embed.description = "Hello! Welcome to the help page."
 
-        messages = [f'{emoji} {func.__doc__}' for emoji, func in self.reaction_emojis]
+        messages = [f"{emoji} {func.__doc__}" for emoji, func in self.reaction_emojis]
         self.embed.clear_fields()
-        self.embed.add_field(name='What are these reactions for?', value='\n'.join(messages), inline=False)
+        self.embed.add_field(
+            name="What are these reactions for?", value="\n".join(messages), inline=False
+        )
 
-        self.embed.set_footer(text=f'We were on page {self.current_page} before this message.')
+        self.embed.set_footer(text=f"We were on page {self.current_page} before this message.")
         await self.message.edit(embed=self.embed)
 
         async def go_back_to_current_page():
@@ -449,25 +473,30 @@ class HelpPaginator(Pages):
     async def show_bot_help(self):
         """shows how to use the bot"""
 
-        self.embed.title = 'Using the bot'
-        self.embed.description = 'Hello! Welcome to the help page.'
+        self.embed.title = "Using the bot"
+        self.embed.description = "Hello! Welcome to the help page."
         self.embed.clear_fields()
 
         entries = (
-            ('<argument>', 'This means the argument is __**required**__.'),
-            ('[argument]', 'This means the argument is __**optional**__.'),
-            ('[A|B]', 'This means the it can be __**either A or B**__.'),
-            ('[argument...]', 'This means you can have multiple arguments.\n' \
-                              'Now that you know the basics, it should be noted that...\n' \
-                              '__**You do not type in the brackets!**__')
+            ("<argument>", "This means the argument is __**required**__."),
+            ("[argument]", "This means the argument is __**optional**__."),
+            ("[A|B]", "This means the it can be __**either A or B**__."),
+            (
+                "[argument...]",
+                "This means you can have multiple arguments.\n"
+                "Now that you know the basics, it should be noted that...\n"
+                "__**You do not type in the brackets!**__",
+            ),
         )
 
-        self.embed.add_field(name='How do I use this bot?', value='Reading the bot signature is pretty simple.')
+        self.embed.add_field(
+            name="How do I use this bot?", value="Reading the bot signature is pretty simple."
+        )
 
         for name, value in entries:
             self.embed.add_field(name=name, value=value, inline=False)
 
-        self.embed.set_footer(text=f'We were on page {self.current_page} before this message.')
+        self.embed.set_footer(text=f"We were on page {self.current_page} before this message.")
         await self.message.edit(embed=self.embed)
 
         async def go_back_to_current_page():
