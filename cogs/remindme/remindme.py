@@ -30,9 +30,7 @@ class RemindMe(commands.Cog):
         """Set up the cog."""
         super().__init__()
         self.bot = bot
-        self.config = Config.get_conf(
-            self, identifier=1224364860, force_registration=True
-        )
+        self.config = Config.get_conf(self, identifier=1224364860, force_registration=True)
         self.config.register_global(**self.default_global_settings)
         self.bg_loop_task = None
         self.enable_bg_loop()
@@ -50,8 +48,7 @@ class RemindMe(commands.Cog):
             pass
         except Exception as exc:
             log.exception(
-                "Unexpected exception occurred in background loop of RemindMe: ",
-                exc_info=exc,
+                "Unexpected exception occurred in background loop of RemindMe: ", exc_info=exc,
             )
             asyncio.create_task(
                 self.bot.send_to_owners(
@@ -110,8 +107,7 @@ class RemindMe(commands.Cog):
             await self.send_message(ctx, "You don't have any upcoming reminders.")
         else:
             embed = discord.Embed(
-                title="Reminders for {}".format(author.name),
-                color=await ctx.embed_color(),
+                title="Reminders for {}".format(author.name), color=await ctx.embed_color(),
             )
             embed.set_thumbnail(url=author.avatar_url)
             current_timestamp = int(current_time.time())
@@ -122,9 +118,7 @@ class RemindMe(commands.Cog):
                 embed.add_field(
                     name="#{} - {}".format(
                         count,
-                        "In {}".format(humanize_timedelta(seconds=delta))
-                        if delta > 0
-                        else "Now!",
+                        "In {}".format(humanize_timedelta(seconds=delta)) if delta > 0 else "Now!",
                     ),
                     value=reminder["TEXT"],
                     inline=False,
@@ -183,9 +177,7 @@ class RemindMe(commands.Cog):
                 ctx,
                 (
                     "You have too many reminders! "
-                    "I can only keep track of {} {} for you at a time.".format(
-                        maximum, plural
-                    )
+                    "I can only keep track of {} {} for you at a time.".format(maximum, plural)
                 ),
             )
             return
@@ -222,9 +214,7 @@ class RemindMe(commands.Cog):
         }
         async with self.config.reminders() as current_reminders:
             current_reminders.append(reminder)
-        await self.send_message(
-            ctx, "I will remind you that in {}.".format(future_text)
-        )
+        await self.send_message(ctx, "I will remind you that in {}.".format(future_text))
 
         can_react = ctx.channel.permissions_for(ctx.me).add_reactions
         can_edit = ctx.channel.permissions_for(ctx.me).manage_messages
@@ -254,8 +244,7 @@ class RemindMe(commands.Cog):
                 # Ask if the user really wants to do this
                 pred = MessagePredicate.yes_or_no(ctx)
                 await self.send_message(
-                    ctx,
-                    "Are you **sure** you want to remove all of your reminders? (yes/no)",
+                    ctx, "Are you **sure** you want to remove all of your reminders? (yes/no)",
                 )
                 try:
                     await ctx.bot.wait_for("message", check=pred, timeout=30)
@@ -320,9 +309,7 @@ class RemindMe(commands.Cog):
         await ctx.send(message)
 
     @commands.Cog.listener()
-    async def on_raw_reaction_add(
-        self, payload: discord.raw_models.RawReactionActionEvent
-    ):
+    async def on_raw_reaction_add(self, payload: discord.raw_models.RawReactionActionEvent):
         """Watches for bell reactions on reminder messages.
 
         Thank you SinbadCogs!
@@ -346,9 +333,7 @@ class RemindMe(commands.Cog):
                 if not current_reminders.count(reminder):
                     current_reminders.append(reminder)
                     await member.send(
-                        "Hello! I will remind you of that in {}.".format(
-                            reminder["FUTURE_TEXT"]
-                        )
+                        "Hello! I will remind you of that in {}.".format(reminder["FUTURE_TEXT"])
                     )
         except KeyError:
             return
