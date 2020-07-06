@@ -19,7 +19,7 @@ import asyncio
 import discord
 import logging
 
-from redbot.core import checks, commands
+from redbot.core import Config as ConfigV3, checks, commands
 from redbot.core.bot import Red
 from redbot.core.commands.context import Context
 from redbot.core.utils.paginator import Pages
@@ -134,6 +134,8 @@ class Tags(commands.Cog):
             load_later=True,
         )
         self.settings = Config("settings.json", cogname="tags")
+        self.configV3 = ConfigV3.get_conf(self, identifier=5842647, force_registration=True)
+        self.configV3.register_guild(**BASE)  # Register default (empty) settings.
         self.lock = Lock()
 
     def get_database_location(self, message: discord.Message):
@@ -191,6 +193,9 @@ class Tags(commands.Cog):
     async def user_exceeds_tag_limit(self, server: discord.Guild, user: discord.Member):
         """Check to see if user has too many tags.
 
+        This check compares against all relevant roles that the member has, and will
+        take the maximum of all relevant roles.
+
         Parameters:
         -----------
         server: discord.Guild
@@ -200,13 +205,14 @@ class Tags(commands.Cog):
 
         Returns:
         --------
-        bool
-            True if too many tags, else False.
+        (bool, int)
+            bool: True if user has too many tags, else False.
+            int: The maximum number of tags this user can have. If unlimited, then this
+            will be float("inf").
         """
-
         if await self.bot.is_owner(user):
             # No limit for bot owner
-            return False
+            return (False, NO_LIMIT)
 
         if server:
             # No limit for mods and admins of server.
@@ -215,7 +221,7 @@ class Tags(commands.Cog):
             admin_roles = await self.bot.get_admin_roles(server)
             roles = user.roles
             if list(set(admin_roles) & set(roles)) or list(set(mod_roles) & set(roles)):
-                return False
+                return (False, NO_LIMIT)
 
         tags = [
             tag.name
@@ -228,10 +234,16 @@ class Tags(commands.Cog):
                 for tag in self.config.get(str(server.id), {}).values()
                 if tag.owner_id == str(user.id)
             )
-        limit = self.settings.get(KEY_MAX, DEFAULT_MAX)
+        tiers = await self.configV3.guild(server).tiers()
+        # Convert role IDs to string since keys are stored as strings.
+        roleIds = [str(r.id) for r in user.roles]
+        relevantTiers = list(set(tiers.keys()) & set(roleIds))
+        if not relevantTiers:
+            return (True, 0)
+        limit = max([tiers[key] for key in relevantTiers])
         if len(tags) >= limit:
-            return True
-        return False
+            return (True, limit)
+        return (False, limit)
 
     @commands.group(name="tag", invoke_without_command=True)
     async def tag(self, ctx: Context, *, name: str):
@@ -271,33 +283,66 @@ class Tags(commands.Cog):
         if len(lookup) > 100:
             raise RuntimeError("Tag name is a maximum of 100 characters.")
 
-    @tag.command(name="max")
+    @tag.group("settings")
     @commands.guild_only()
     @checks.mod_or_permissions()
-    async def max(self, ctx: Context, num_tags: int = None):
-        """Set the max number of tags per user. Leave blank to show current setting.
+    async def settings(self, ctx: Context):
+        """Tag settings."""
+
+    @settings.command(name="max")
+    async def max(self, ctx: Context, role: discord.Role, num_tags: int):
+        """Set the max number of tags per member per role.
+
+        For each member of the specified role, each member will have a maximum
+        number of tags they can create. If the member is part of more than one
+        role, then they will take the MAXIMUM number from the roles that they
+        have.
 
         This limit does not apply to admins or mods.
 
         Parameters:
         -----------
+        role: discord.Role
+            The role to set a maximum for.
         num_tags: int
-            The maximum number of tags per user.
+            The maximum number of tags per member for that role.
+            If 0, then the tier is removed.
         """
-        if not num_tags:
-            limit = self.settings.get(KEY_MAX, DEFAULT_MAX)
-            await ctx.send("The current tag limit per user is {}.".format(limit))
-            return
         if num_tags < 0:
             await ctx.send("Please set a value greater than 0.")
             return
 
-        await self.settings.put(KEY_MAX, num_tags)
-        await ctx.send("The tag limit was set to {}".format(num_tags))
+        async with self.configV3.guild(ctx.guild).tiers() as tiers:
+            if num_tags == 0:
+                if str(role.id) in tiers.keys():
+                    del tiers[str(role.id)]
+                await ctx.send(f"{role.name} will not be allowed to add tags")
+            else:
+                tiers[role.id] = num_tags
+                await ctx.send(f"The tag limit for {role.name} was set to {num_tags}.")
 
-    @tag.command(name="dump")
-    @commands.guild_only()
-    @checks.mod_or_permissions()
+    @settings.command(name="tiers")
+    async def tiers(self, ctx: Context):
+        """Show the tiers and their respective max tags."""
+        tiers = await self.configV3.guild(ctx.guild).tiers()
+        validTiers = []
+        msg = ""
+        for roleId, maxTags in tiers.items():
+            role = discord.utils.get(ctx.guild.roles, id=int(roleId))
+            if not role:
+                continue
+            validTiers.append((role, maxTags))
+        if validTiers:
+            msgList = ["Below is a list of roles and their tag limits:"]
+            validTiers.sort(key=lambda x: x[1])
+            for role, maxTags in validTiers:
+                msgList.append(f"{role.name}: {maxTags}")
+            msg = "\n".join(msgList)
+        else:
+            msg = "There are no tiers configured."
+        await ctx.send(msg)
+
+    @settings.command(name="dump")
     async def dump(self, ctx: Context):
         """Dumps server-specific tags to a CSV file, sorted by number of uses."""
         sid = str(ctx.guild.id)
@@ -356,11 +401,11 @@ class Tags(commands.Cog):
                 )
                 return
 
-        limit = self.settings.get(KEY_MAX, DEFAULT_MAX)
-        if await self.user_exceeds_tag_limit(ctx.guild, ctx.author):
+        exceedsLimit, limit = await self.user_exceeds_tag_limit(ctx.guild, ctx.author)
+        if exceedsLimit:
             await ctx.send(
                 "You have too many commands. The maximum number of commands "
-                "per user is {}, please delete some first!".format(limit)
+                f"you can create is {limit}, please delete some first!"
             )
             return
 
@@ -509,11 +554,11 @@ class Tags(commands.Cog):
                 await ctx.send("Could not access the Alias cog. Please load it and " "try again.")
                 return
 
-        if await self.user_exceeds_tag_limit(ctx.guild, ctx.author):
-            limit = self.settings.get(KEY_MAX, DEFAULT_MAX)
+        exceedsLimit, limit = await self.user_exceeds_tag_limit(ctx.guild, ctx.author)
+        if exceedsLimit:
             await ctx.send(
                 "You have too many commands. The maximum number of commands "
-                f"per user is {limit}, please delete some first!"
+                f"you can create is {limit}, please delete some first!"
             )
             return
 
@@ -729,9 +774,11 @@ class Tags(commands.Cog):
             return
 
         # Check if the user to transfer to has exceeded the tag limit
-        if await self.user_exceeds_tag_limit(ctx.guild, user):
+        exceedsLimit, _ = await self.user_exceeds_tag_limit(ctx.guild, user)
+        if exceedsLimit:
             await ctx.send(
-                "The person you are trying to transfer a tag to already " "has too many commands!"
+                "The person you are trying to transfer a tag to is not allowed to have "
+                "tags or already has too many tags!"
             )
             return
 
@@ -1063,9 +1110,7 @@ class Tags(commands.Cog):
         else:
             raise error
 
-    @tag.command(name="togglealias")
-    @commands.guild_only()
-    @checks.mod_or_permissions(manage_messages=True)
+    @settings.command(name="togglealias")
     async def togglealias(self, ctx: Context):
         """Toggle creating aliases for tags."""
         if self.settings.get(KEY_USE_ALIAS, False):
@@ -1082,9 +1127,7 @@ class Tags(commands.Cog):
             )
         await self.settings.put(KEY_USE_ALIAS, toAlias)
 
-    @tag.command(name="toggledm")
-    @commands.guild_only()
-    @checks.mod_or_permissions(manage_messages=True)
+    @settings.command(name="toggledm")
     async def toggledm(self, ctx: Context):
         """Toggle sending DM for list of tags."""
         self.dm = self.settings.get("dm", False)
