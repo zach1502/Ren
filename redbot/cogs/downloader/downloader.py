@@ -29,7 +29,7 @@ _ = Translator("Downloader", __file__)
 
 DEPRECATION_NOTICE = _(
     "\n**WARNING:** The following repos are using shared libraries"
-    " which are marked for removal in Red 3.4: {repo_list}.\n"
+    " which are marked for removal in the future: {repo_list}.\n"
     " You should inform maintainers of these repos about this message."
 )
 
@@ -245,7 +245,6 @@ class Downloader(commands.Cog):
                     installed[module._json_repo_name].pop(module.name)
 
     async def _shared_lib_load_check(self, cog_name: str) -> Optional[Repo]:
-        # remove in Red 3.4
         is_installed, cog = await self.is_installed(cog_name)
         # it's not gonna be None when `is_installed` is True
         # if we'll use typing_extensions in future, `Literal` can solve this
@@ -1388,7 +1387,6 @@ class Downloader(commands.Cog):
             cog_name = self.cog_name_from_instance(cog)
             installed, cog_installable = await self.is_installed(cog_name)
             if installed:
-                is_installable = True
                 made_by = humanize_list(cog_installable.author) or _("Missing from info.json")
                 repo_url = (
                     _("Missing from installed repos")
@@ -1396,11 +1394,13 @@ class Downloader(commands.Cog):
                     else cog_installable.repo.clean_url
                 )
                 cog_name = cog_installable.name
-            else:
-                # Assume it's in a base cog
-                is_installable = False
-                made_by = "26 & co."
+            elif cog.__module__.startswith("redbot."):  # core commands or core cog
+                made_by = "Cog Creators"
                 repo_url = "https://github.com/Cog-Creators/Red-DiscordBot"
+                cog_name = cog.__class__.__name__
+            else:  # assume not installed via downloader
+                made_by = _("Unknown")
+                repo_url = _("None - this cog wasn't installed via downloader")
                 cog_name = cog.__class__.__name__
         else:
             msg = _("This command is not provided by a cog.")
@@ -1413,7 +1413,7 @@ class Downloader(commands.Cog):
             embed.add_field(name=_("Cog Name:"), value=cog_name, inline=False)
             embed.add_field(name=_("Made by:"), value=made_by, inline=False)
             embed.add_field(name=_("Repo URL:"), value=repo_url, inline=False)
-            if is_installable and cog_installable.repo is not None and cog_installable.repo.branch:
+            if installed and cog_installable.repo is not None and cog_installable.repo.branch:
                 embed.add_field(
                     name=_("Repo branch:"), value=cog_installable.repo.branch, inline=False
                 )
@@ -1423,7 +1423,7 @@ class Downloader(commands.Cog):
             msg = _(
                 "Command: {command}\nCog name: {cog}\nMade by: {author}\nRepo URL: {repo_url}\n"
             ).format(command=command_name, author=made_by, repo_url=repo_url, cog=cog_name)
-            if is_installable and cog_installable.repo is not None and cog_installable.repo.branch:
+            if installed and cog_installable.repo is not None and cog_installable.repo.branch:
                 msg += _("Repo branch: {branch_name}\n").format(
                     branch_name=cog_installable.repo.branch
                 )
