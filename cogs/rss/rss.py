@@ -183,7 +183,10 @@ class RSSFeed(commands.Cog):
             latestPostTime = 0
 
         news = []
-        feed = feedparser.parse(rssUrl)
+        async with aiohttp.ClientSession() as session:
+            async with session.get(rssUrl) as resp:
+                page = await resp.text()
+        feed = feedparser.parse(page)
 
         for item in feed.entries:
             itemPostTime = date2epoch(item["published"])
@@ -258,7 +261,7 @@ class RSSFeed(commands.Cog):
                         self.logger.error("Image URL error: %s", error)
 
                     embed.set_footer(
-                        text="This update is from " "{}".format(item.title_detail.base),
+                        text=f"This update is from {item.title_detail.base}",
                         icon_url=RSS_IMAGE_URL,
                     )
 
