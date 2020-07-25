@@ -115,7 +115,9 @@ class StarboardEvents:
             em = message.embeds[0]
             if message.system_content:
                 if em.description != discord.Embed.Empty:
-                    em.description = "{}\n\n{}".format(message.system_content, em.description)[:2048]
+                    em.description = "{}\n\n{}".format(message.system_content, em.description)[
+                        :2048
+                    ]
                 else:
                     em.description = message.system_content
                 if not author.bot:
