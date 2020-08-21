@@ -1,11 +1,12 @@
 import asyncio
 import contextlib
 import logging
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Optional, Union
 
 import discord
 from redbot.core import commands, i18n, checks, modlog
+from redbot.core.commands import UserInputOptional
 from redbot.core.utils import AsyncIter
 from redbot.core.utils.chat_formatting import pagify, humanize_number, bold, humanize_list
 from redbot.core.utils.mod import is_allowed_by_hierarchy, get_audit_reason
@@ -116,23 +117,17 @@ class KickBanMixin(MixinMeta):
             return _("An unexpected error occurred.")
 
         if create_modlog_case:
-            try:
-                await modlog.create_case(
-                    self.bot,
-                    guild,
-                    ctx.message.created_at,
-                    "ban",
-                    user,
-                    author,
-                    reason,
-                    until=None,
-                    channel=None,
-                )
-            except RuntimeError as e:
-                return _(
-                    "The user was banned but an error occurred when trying to "
-                    "create the modlog entry: {reason}"
-                ).format(reason=e)
+            await modlog.create_case(
+                self.bot,
+                guild,
+                ctx.message.created_at.replace(tzinfo=timezone.utc),
+                "ban",
+                user,
+                author,
+                reason,
+                until=None,
+                channel=None,
+            )
 
         return True
 
@@ -142,12 +137,16 @@ class KickBanMixin(MixinMeta):
                 if not guild.me.guild_permissions.ban_members:
                     continue
 
+                if await self.bot.cog_disabled_in_guild(self, guild):
+                    continue
+
                 async with self.config.guild(guild).current_tempbans() as guild_tempbans:
                     for uid in guild_tempbans.copy():
-                        unban_time = datetime.utcfromtimestamp(
-                            await self.config.member_from_ids(guild.id, uid).banned_until()
+                        unban_time = datetime.fromtimestamp(
+                            await self.config.member_from_ids(guild.id, uid).banned_until(),
+                            timezone.utc,
                         )
-                        if datetime.utcnow() > unban_time:  # Time to unban the user
+                        if datetime.now(timezone.utc) > unban_time:  # Time to unban the user
                             queue_entry = (guild.id, uid)
                             try:
                                 await guild.unban(
@@ -227,20 +226,17 @@ class KickBanMixin(MixinMeta):
                 )
             )
         else:
-            try:
-                await modlog.create_case(
-                    self.bot,
-                    guild,
-                    ctx.message.created_at,
-                    "kick",
-                    user,
-                    author,
-                    reason,
-                    until=None,
-                    channel=None,
-                )
-            except RuntimeError as e:
-                await ctx.send(e)
+            await modlog.create_case(
+                self.bot,
+                guild,
+                ctx.message.created_at.replace(tzinfo=timezone.utc),
+                "kick",
+                user,
+                author,
+                reason,
+                until=None,
+                channel=None,
+            )
             await ctx.send(_("Done. That felt good."))
 
     @commands.command()
@@ -412,20 +408,17 @@ class KickBanMixin(MixinMeta):
                     else:
                         banned.append(user_id)
 
-            try:
-                await modlog.create_case(
-                    self.bot,
-                    guild,
-                    ctx.message.created_at,
-                    "hackban",
-                    user_id,
-                    author,
-                    reason,
-                    until=None,
-                    channel=None,
-                )
-            except RuntimeError as e:
-                errors["0"] = _("Failed to create modlog case: {reason}").format(reason=e)
+            await modlog.create_case(
+                self.bot,
+                guild,
+                ctx.message.created_at.replace(tzinfo=timezone.utc),
+                "hackban",
+                user_id,
+                author,
+                reason,
+                until=None,
+                channel=None,
+            )
         await show_results()
 
     @commands.command()
@@ -436,15 +429,15 @@ class KickBanMixin(MixinMeta):
         self,
         ctx: commands.Context,
         user: discord.Member,
-        duration: Optional[commands.TimedeltaConverter] = timedelta(days=1),
-        days: Optional[int] = 0,
+        duration: UserInputOptional[commands.TimedeltaConverter] = timedelta(days=1),
+        days: Optional[int] = None,
         *,
         reason: str = None,
     ):
         """Temporarily ban a user from this server."""
         guild = ctx.guild
         author = ctx.author
-        unban_time = datetime.utcnow() + duration
+        unban_time = datetime.now(timezone.utc) + duration
 
         if author == user:
             await ctx.send(
@@ -463,7 +456,11 @@ class KickBanMixin(MixinMeta):
         elif guild.me.top_role <= user.top_role or user == guild.owner:
             await ctx.send(_("I cannot do that due to discord hierarchy rules"))
             return
-        elif not (0 <= days <= 7):
+
+        if days is None:
+            days = await self.config.guild(guild).default_days()
+
+        if not (0 <= days <= 7):
             await ctx.send(_("Invalid days. Must be between 0 and 7."))
             return
         invite = await self.get_invite_for_reinvite(ctx, int(duration.total_seconds() + 86400))
@@ -492,19 +489,16 @@ class KickBanMixin(MixinMeta):
         except discord.HTTPException:
             await ctx.send(_("Something went wrong while banning."))
         else:
-            try:
-                await modlog.create_case(
-                    self.bot,
-                    guild,
-                    ctx.message.created_at,
-                    "tempban",
-                    user,
-                    author,
-                    reason,
-                    unban_time,
-                )
-            except RuntimeError as e:
-                await ctx.send(e)
+            await modlog.create_case(
+                self.bot,
+                guild,
+                ctx.message.created_at.replace(tzinfo=timezone.utc),
+                "tempban",
+                user,
+                author,
+                reason,
+                unban_time,
+            )
             await ctx.send(_("Done. Enough chaos for now."))
 
     @commands.command()
@@ -578,20 +572,17 @@ class KickBanMixin(MixinMeta):
                 "{}({}) softbanned {}({}), deleting 1 day worth "
                 "of messages.".format(author.name, author.id, user.name, user.id)
             )
-            try:
-                await modlog.create_case(
-                    self.bot,
-                    guild,
-                    ctx.message.created_at,
-                    "softban",
-                    user,
-                    author,
-                    reason,
-                    until=None,
-                    channel=None,
-                )
-            except RuntimeError as e:
-                await ctx.send(e)
+            await modlog.create_case(
+                self.bot,
+                guild,
+                ctx.message.created_at.replace(tzinfo=timezone.utc),
+                "softban",
+                user,
+                author,
+                reason,
+                until=None,
+                channel=None,
+            )
             await ctx.send(_("Done. Enough chaos."))
 
     @commands.command()
@@ -628,20 +619,17 @@ class KickBanMixin(MixinMeta):
             await ctx.send(_("Something went wrong while attempting to kick that member."))
             return
         else:
-            try:
-                await modlog.create_case(
-                    self.bot,
-                    guild,
-                    ctx.message.created_at,
-                    "vkick",
-                    member,
-                    author,
-                    reason,
-                    until=None,
-                    channel=case_channel,
-                )
-            except RuntimeError as e:
-                await ctx.send(e)
+            await modlog.create_case(
+                self.bot,
+                guild,
+                ctx.message.created_at.replace(tzinfo=timezone.utc),
+                "vkick",
+                member,
+                author,
+                reason,
+                until=None,
+                channel=case_channel,
+            )
 
     @commands.command()
     @commands.guild_only()
@@ -670,20 +658,17 @@ class KickBanMixin(MixinMeta):
             await ctx.send(_("Something went wrong while attempting to unban that user."))
             return
         else:
-            try:
-                await modlog.create_case(
-                    self.bot,
-                    guild,
-                    ctx.message.created_at,
-                    "unban",
-                    user,
-                    author,
-                    reason,
-                    until=None,
-                    channel=None,
-                )
-            except RuntimeError as e:
-                await ctx.send(e)
+            await modlog.create_case(
+                self.bot,
+                guild,
+                ctx.message.created_at.replace(tzinfo=timezone.utc),
+                "unban",
+                user,
+                author,
+                reason,
+                until=None,
+                channel=None,
+            )
             await ctx.send(_("Unbanned that user from this server."))
 
         if await self.config.guild(guild).reinvite_on_unban():
