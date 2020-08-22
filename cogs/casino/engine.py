@@ -115,7 +115,9 @@ class GameEngine(Database):
             ).format(self.game, settings["Games"][self.game]["Access"], access)
 
         elif self.choices is not None and self.choice not in self.choices:
-            error = _("Incorrect response. Accepted responses are:\n{}.").format(utils.fmt_join(self.choices))
+            error = _("Incorrect response. Accepted responses are:\n{}.").format(
+                utils.fmt_join(self.choices)
+            )
 
         elif not self.bet_in_range(
             settings["Games"][self.game]["Min"], settings["Games"][self.game]["Max"]
@@ -180,7 +182,9 @@ class GameEngine(Database):
         else:
             seconds = int((user_time + reduction - now))
             remaining = utils.time_formatter(seconds)
-            msg = _("{} is still on a cooldown. You still have: {} remaining.").format(self.game, remaining)
+            msg = _("{} is still on a cooldown. You still have: {} remaining.").format(
+                self.game, remaining
+            )
             return msg
 
     async def game_teardown(self, result):

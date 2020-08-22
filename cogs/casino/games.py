@@ -88,7 +88,9 @@ class Core:
 
     @game_engine("Dice")
     async def play_dice(self, ctx, bet):
-        message = await ctx.send(_("The dice strike the back of the table and begin to tumble into place..."))
+        message = await ctx.send(
+            _("The dice strike the back of the table and begin to tumble into place...")
+        )
         await asyncio.sleep(2)
         die_one, die_two = self.roll_dice()
         outcome = die_one + die_two
@@ -216,7 +218,11 @@ class Blackjack:
         try:
             await bank.withdraw_credits(ctx.author, amount)
         except ValueError:
-            await ctx.send(_("{} You can not cover the bet. Please choose hit or stay.").format(ctx.author.mention))
+            await ctx.send(
+                _("{} You can not cover the bet. Please choose hit or stay.").format(
+                    ctx.author.mention
+                )
+            )
 
             try:
                 choice2 = await ctx.bot.wait_for("message", check=condition2, timeout=35.0)

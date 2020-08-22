@@ -314,7 +314,9 @@ class Database:
         await data.Played.clear()
         await data.Won.clear()
 
-        msg = ("{0.name} ({0.id}) reset all stats for {1.name} ({1.id}).").format(ctx.author, player)
+        msg = ("{0.name} ({0.id}) reset all stats for {1.name} ({1.id}).").format(
+            ctx.author, player
+        )
         await ctx.send(msg)
 
     async def _reset_player_all(self, ctx, player):
@@ -329,7 +331,9 @@ class Database:
         data = await self.get_data(ctx, player=player)
         await data.clear()
 
-        msg = ("{0.name} ({0.id}) reset all data for {1.name} ({1.id}).").format(ctx.author, player)
+        msg = ("{0.name} ({0.id}) reset all data for {1.name} ({1.id}).").format(
+            ctx.author, player
+        )
         await ctx.send(msg)
 
     async def _reset_player_cooldowns(self, ctx, player):
@@ -344,7 +348,9 @@ class Database:
         data = await self.get_data(ctx, player=player)
         await data.Cooldowns.clear()
 
-        msg = ("{0.name} ({0.id}) reset all cooldowns for {1.name} ({1.id}).").format(ctx.author, player)
+        msg = ("{0.name} ({0.id}) reset all cooldowns for {1.name} ({1.id}).").format(
+            ctx.author, player
+        )
         await ctx.send(msg)
 
     async def _reset_cooldowns(self, ctx):
@@ -363,7 +369,9 @@ class Database:
             for player in await self.config.all_members(ctx.guild):
                 user = ctx.guild.get_member(player)
                 await self.config.member(user).Cooldowns.clear()
-            msg = ("{0.name} ({0.id}) reset all cooldowns on {1.name}.").format(ctx.author, ctx.guild)
+            msg = ("{0.name} ({0.id}) reset all cooldowns on {1.name}.").format(
+                ctx.author, ctx.guild
+            )
 
         await ctx.send(msg)
 
