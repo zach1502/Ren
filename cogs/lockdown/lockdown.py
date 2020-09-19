@@ -75,7 +75,7 @@ class Lockdown(commands.Cog):
         role_id = await self.settings.guild(guild).current_lockdown_role_id()
         role = discord.utils.get(guild.roles, id=role_id)
         targets = [m for m in guild.members if m.top_role == role]
-        
+
         if not guild.me.guild_permissions.manage_roles:
             return await ctx.send("I can't manage roles in this server!")
 
