@@ -272,7 +272,7 @@ class Alias(commands.Cog):
         # At this point we know we need to make a new alias
         #   and that the alias name is valid.
 
-        self.add_alias(ctx, alias_name, command)
+        await self.add_alias(ctx, alias_name, command)
 
     async def add_alias(self, ctx: commands.Context, alias_name: str, command):
         """Add an alias, potentially from another cog."""
