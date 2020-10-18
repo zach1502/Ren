@@ -1,6 +1,7 @@
 """Birthday cog Automatically add users to a specified birthday role on their
 birthday."""
 import logging
+from random import choice
 import time  # To auto remove birthday role on the next day.
 import asyncio
 from datetime import datetime, timedelta
@@ -52,6 +53,37 @@ class Birthday(commands.Cog):
     async def _birthday(self, ctx: Context):
         """Birthday role assignment settings."""
 
+    @_birthday.command(name="setchannel", aliases=["ch"])
+    @commands.guild_only()
+    @checks.mod_or_permissions(administrator=True)
+    async def setChannel(self, ctx, channel: discord.TextChannel = None):
+        """Set the channel to mention members on their birthday.
+
+        Parameters:
+        -----------
+        channel: Optional[discord.TextChannel]
+            A text channel to mention a member's birthday.
+        """
+
+        if channel:
+            await self.config.guild(ctx.message.guild).birthdayChannel.set(channel.id)
+            self.logger.info(
+                "%s#%s (%s) set the birthday channel to %s",
+                ctx.message.author.name,
+                ctx.message.author.discriminator,
+                ctx.message.author.id,
+                channel.name,
+            )
+            await ctx.send(
+                ":white_check_mark: **Birthday - Channel**: **{}** has been set "
+                "as the birthday mention channel!".format(channel.name)
+            )
+        else:
+            await self.config.guild(ctx.message.guild).birthdayChannel.set(None)
+            await ctx.send(
+                ":white_check_mark: **Birthday - Channel**: Birthday mentions are now disabled."
+            )
+
     @_birthday.command(name="setrole")
     @commands.guild_only()
     @checks.mod_or_permissions(administrator=True)
@@ -78,6 +110,13 @@ class Birthday(commands.Cog):
             ":white_check_mark: **Birthday - Role**: **{}** has been set "
             "as the birthday role!".format(role.name)
         )
+
+    @_birthday.command(name="test")
+    @commands.guild_only()
+    async def test(self, ctx):
+        """Test at-mentions."""
+        for msg in CANNED_MESSAGES:
+            await ctx.send(msg.format(ctx.author.mention))
 
     @_birthday.command(name="add")
     @commands.guild_only()
@@ -490,6 +529,7 @@ class Birthday(commands.Cog):
                 # Make sure the guild is configured with birthday role.
                 # If it's not, skip over it.
                 bdayRoleId = await self.config.guild(guild).birthdayRole()
+                bdayChannelId = await self.config.guild(guild).birthdayChannel()
                 if not bdayRoleId:
                     continue
 
@@ -508,6 +548,7 @@ class Birthday(commands.Cog):
                         # Get the necessary Discord objects.
                         role = discord.utils.get(guild.roles, id=bdayRoleId)
                         member = discord.utils.get(guild.members, id=memberId)
+                        channel = discord.utils.get(guild.channels, id=bdayChannelId)
 
                         # Skip if member is no longer in server.
                         if not member:
@@ -534,4 +575,13 @@ class Birthday(commands.Cog):
                                     member.discriminator,
                                     member.id,
                                     exc_info=True,
+                                )
+                            if not channel:
+                                continue
+                            try:
+                                msg = choice(CANNED_MESSAGES)
+                                await channel.send(msg.format(member.mention))
+                            except discord.Forbidden:
+                                self.logger.error(
+                                    "Could not send message!", exc_info=True,
                                 )
