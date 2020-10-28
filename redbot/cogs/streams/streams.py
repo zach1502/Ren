@@ -1,7 +1,7 @@
 import discord
 from redbot.core.bot import Red
 from redbot.core import checks, commands, Config
-from redbot.core.i18n import cog_i18n, Translator
+from redbot.core.i18n import cog_i18n, Translator, set_contextual_locales_from_guild
 from redbot.core.utils._internal_utils import send_to_owners_with_prefix_replaced
 from redbot.core.utils.chat_formatting import escape, pagify
 
@@ -207,7 +207,9 @@ class Streams(commands.Cog):
         await self.maybe_renew_twitch_bearer_token()
         token = (await self.bot.get_shared_api_tokens("twitch")).get("client_id")
         stream = TwitchStream(
-            name=channel_name, token=token, bearer=self.ttv_bearer_cache.get("access_token", None),
+            name=channel_name,
+            token=token,
+            bearer=self.ttv_bearer_cache.get("access_token", None),
         )
         await self.check_online(ctx, stream)
 
@@ -712,6 +714,9 @@ class Streams(commands.Cog):
                         ignore_reruns = await self.config.guild(channel.guild).ignore_reruns()
                         if ignore_reruns and is_rerun:
                             continue
+
+                        await set_contextual_locales_from_guild(self.bot, channel.guild)
+
                         mention_str, edited_roles = await self._get_mention_str(
                             channel.guild, channel
                         )
@@ -724,7 +729,7 @@ class Streams(commands.Cog):
                                 content = alert_msg  # Stop bad things from happening here...
                                 content = content.replace(
                                     "{stream.name}", str(stream.name)
-                                )  # Backwards compatability
+                                )  # Backwards compatibility
                                 content = content.replace("{stream}", str(stream.name))
                                 content = content.replace("{mention}", mention_str)
                             else:
@@ -742,7 +747,7 @@ class Streams(commands.Cog):
                                 content = alert_msg  # Stop bad things from happening here...
                                 content = content.replace(
                                     "{stream.name}", str(stream.name)
-                                )  # Backwards compatability
+                                )  # Backwards compatibility
                                 content = content.replace("{stream}", str(stream.name))
                             else:
                                 content = _("{stream} is live!").format(
