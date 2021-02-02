@@ -8,6 +8,7 @@ from .constants import *
 from .exceptions import *
 from .rolecheck import role_or_mod_or_permissions
 
+from copy import deepcopy
 import csv
 import json
 import re
@@ -864,6 +865,63 @@ class Tags(commands.Cog):
                 "Tag has been rejected by {}. Transfer has been " "cancelled.".format(user.name)
             )
 
+    @tag.command(name="rename")
+    async def rename(self, ctx: Context, oldName: str, newName: str):
+        """Renames a tag.
+
+        This is useful to help preserve tag statistics.
+
+        Parameters
+        ----------
+        oldName: str
+            The old tag name.
+        newName: str
+            The new tag name.
+        """
+        try:
+            aliasCog = self.checkAliasCog(newName)
+            self.checkValidCommandName(newName)
+        except RuntimeError as error:
+            return await ctx.send(error)
+
+        newName = newName.lower().strip()
+        oldName = oldName.lower()
+        try:
+            self.verify_lookup(newName)
+            tag = self.get_tag(ctx.guild, oldName, redirect=False)
+        except RuntimeError as e:
+            return await ctx.send(e)
+
+        location = self.get_database_location(ctx.message)
+        db = self.config.get(location, {})
+        if newName in db:
+            await ctx.send('A tag with the name of "{}" already exists.'.format(newName))
+            return
+
+        mod_roles = await self.bot.get_mod_roles(ctx.guild)
+        admin_roles = await self.bot.get_admin_roles(ctx.guild)
+        roles = ctx.author.roles
+
+        # Check and see if the user is not the tag owner, or is not a mod, or is not an admin.
+        if (
+            tag.owner_id != str(ctx.message.author.id)
+            and not list(set(admin_roles) & set(roles))
+            and not list(set(mod_roles) & set(roles))
+            and not await self.bot.is_owner(ctx.author)
+        ):
+            await ctx.send("Only the tag owner can rename this tag.")
+            return
+
+        db[newName] = deepcopy(db[oldName])
+        del db[oldName]
+
+        await self.config.put(location, db)
+        if self.settings.get(KEY_USE_ALIAS, False):
+            # Alias is already loaded.
+            await aliasCog.add_alias(ctx, newName, "tag {}".format(newName))
+            await aliasCog.del_alias(ctx, oldName)
+        await ctx.send('Tag "{}" successfully renamed to "{}".'.format(oldName, newName))
+
     @tag.command(name="delete", aliases=["del", "remove", "rm"])
     @role_or_mod_or_permissions(role=ALLOWED_ROLE, manage_messages=True)
     async def remove(self, ctx: Context, *, name: str):
@@ -1212,4 +1270,28 @@ class Tags(commands.Cog):
             self.checkValidCommandName(name)
         except SpaceInTagNameError:
             pass
+
+        # Test rename command after creating
+        await ctx.invoke(self.create, name="runTestCommandTest1", content="This is a test tag")
+        location = self.get_database_location(ctx.message)
+        db = self.config.get(location, {})
+        assert "runTestCommandTest1".lower() in db
+        await ctx.invoke(self.rename, oldName="runTestCommandTest1", newName="runTestCommandTest2")
+        db = self.config.get(location, {})
+        assert "runTestCommandTest1".lower() not in db
+        assert "runTestCommandTest2".lower() in db
+
+        # Test renaming to a command, this should not work.
+        await ctx.invoke(self.rename, oldName="runTestCommandTest2", newName="add")
+        db = self.config.get(location, {})
+        assert "runTestCommandTest2".lower() in db
+        assert "add".lower() not in db
+        await ctx.invoke(self.remove, name="runTestCommandTest2")
+
+        # Test renaming a non-existent command
+        await ctx.invoke(self.rename, oldName="runTestCommandTest1", newName="runTestCommandTest2")
+        db = self.config.get(location, {})
+        assert "runTestCommandTest1".lower() not in db
+        assert "runTestCommandTest2".lower() not in db
+
         await ctx.send("Tests passed!")
