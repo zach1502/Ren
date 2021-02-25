@@ -2,6 +2,7 @@ from redbot.core import commands
 import discord
 from discord_slash import cog_ext, SlashContext
 
+
 class HelloWorld(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
