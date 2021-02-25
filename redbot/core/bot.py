@@ -33,6 +33,7 @@ from types import MappingProxyType
 import discord
 from discord.ext import commands as dpy_commands
 from discord.ext.commands import when_mentioned_or
+from discord_slash import SlashCommand
 
 from . import Config, i18n, commands, errors, drivers, modlog, bank
 from .cog_manager import CogManager, CogManagerUI
@@ -222,6 +223,8 @@ class RedBase(
         self._red_before_invoke_objs: Set[PreInvokeCoroutine] = set()
 
         self._deletion_requests: MutableMapping[int, asyncio.Lock] = weakref.WeakValueDictionary()
+        self.slash_commands = SlashCommand(self, override_type=True, sync_commands=True,
+                                           sync_on_cog_reload=True)
 
     def set_help_formatter(self, formatter: commands.help.HelpFormatterABC):
         """
