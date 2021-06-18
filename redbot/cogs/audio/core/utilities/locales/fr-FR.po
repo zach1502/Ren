@@ -110,11 +110,7 @@ msgid " - Name:   <{pname}>\n"
 " - ID:     < {pid} >\n"
 " - Tracks: < {ptracks} >\n"
 " - Author: < {author} >\n\n"
-msgstr " - Nom :   <{pname}>\n"
-" - Portée :  < {scope} >\n"
-" - ID :     < {pid} >\n"
-" - Pistes : < {ptracks} >\n"
-" - Auteur : < {author} >\n\n"
+msgstr ""
 
 #: redbot/cogs/audio/core/utilities/local_tracks.py:109
 #: redbot/cogs/audio/core/utilities/player.py:235
@@ -134,7 +130,7 @@ msgstr "Pas assez de {currency}"
 
 #: redbot/cogs/audio/core/utilities/miscellaneous.py:54
 msgid "{required_credits} {currency} required, but you have {bal}."
-msgstr "{required_credits} {currency} requis, mais vous avez {bal}."
+msgstr ""
 
 #: redbot/cogs/audio/core/utilities/player.py:78
 msgid "music in {} servers"
@@ -174,14 +170,12 @@ msgstr "{skip_to_track} pistes sautées"
 #: redbot/cogs/audio/core/utilities/player.py:236
 msgid "The owner needs to set the Spotify client ID and Spotify client secret, before Spotify URLs or codes can be used. \n"
 "See `{prefix}audioset spotifyapi` for instructions."
-msgstr "Le propriétaire doit rentrer le \"Client ID\" Spotify et le \"Client Secret\" Spotify avant de pouvoir utiliser les URL ou les codes Spotify. \n"
-"Voir `{prefix}audioset spotifyapi` pour les instructions."
+msgstr ""
 
 #: redbot/cogs/audio/core/utilities/player.py:246
 msgid "The owner needs to set the YouTube API key before Spotify URLs or codes can be used.\n"
 "See `{prefix}audioset youtubeapi` for instructions."
-msgstr "Le propriétaire doit définir la clé d'API YouTube avant de pouvoir utiliser les URLs ou les codes Spotify.\n"
-"Voir `{prefix}audioset youtubeapi` pour les instructions."
+msgstr ""
 
 #: redbot/cogs/audio/core/utilities/player.py:255
 #: redbot/cogs/audio/core/utilities/player.py:364
@@ -325,7 +319,7 @@ msgstr "Vous n'avez pas les permissions de gérer la playlist appartenant à {us
 
 #: redbot/cogs/audio/core/utilities/playlists.py:113
 msgid "You do not have the permissions to manage playlists in {scope} scope."
-msgstr "Vous n'avez pas les permissions pour gérer les playlists dans la portée {scope}."
+msgstr ""
 
 #: redbot/cogs/audio/core/utilities/playlists.py:117
 msgid "No access to playlist."
@@ -341,20 +335,16 @@ msgid "{number}.    <{playlist.name}>\n"
 " - ID:     < {playlist.id} >\n"
 " - Tracks: < {tracks} >\n"
 " - Author: < {author} >\n\n"
-msgstr "{number}.    <{playlist.name}>\n"
-" - Portée :  < {scope} >\n"
-" - ID :    < {playlist.id} >\n"
-" - Pistes : < {tracks} >\n"
-" - Auteur : < {author} >\n\n"
+msgstr ""
 
 #: redbot/cogs/audio/core/utilities/playlists.py:259
 msgid "{playlists} playlists found, which one would you like?"
-msgstr "{playlists} playlistes trouvées, laquelle voulez-vous ?"
+msgstr ""
 
 #: redbot/cogs/audio/core/utilities/playlists.py:278
 #: redbot/cogs/audio/core/utilities/playlists.py:284
 msgid "Too many matches found and you did not select which one you wanted."
-msgstr "Trop de correspondances trouvées et vous n'avez pas sélectionné celle que vous vouliez."
+msgstr ""
 
 #: redbot/cogs/audio/core/utilities/playlists.py:309
 msgid "Playlists you can access in this server:"
@@ -402,7 +392,7 @@ msgstr "Impossible d'obtenir des playlists"
 
 #: redbot/cogs/audio/core/utilities/playlists.py:542
 msgid "I don't have permission to connect and speak in your channel."
-msgstr "Je n'ai pas la permission de me connecter et de parler dans votre salon vocal."
+msgstr ""
 
 #: redbot/cogs/audio/core/utilities/playlists.py:573
 msgid "You must be in the voice channel to use the playlist command."
@@ -459,7 +449,7 @@ msgstr "File d'attente pour __{guild_name}__"
 
 #: redbot/cogs/audio/core/utilities/queue.py:88
 msgid "Page {page_num}/{total_pages} | {num_tracks} tracks, {num_remaining} remaining\n"
-msgstr "Page {page_num}/{total_pages} | {num_tracks} musiques, {num_remaining} restantes\n"
+msgstr ""
 
 #: redbot/cogs/audio/core/utilities/queue.py:97
 msgid "Auto-Play"
@@ -479,5 +469,5 @@ msgstr "Pistes correspondantes :"
 
 #: redbot/cogs/audio/core/utilities/queue.py:164
 msgid "Page {page_num}/{total_pages} | {num_tracks} tracks"
-msgstr "Page {page_num}/{total_pages} | {num_tracks} pistes"
+msgstr ""
 

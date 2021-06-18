@@ -35,9 +35,7 @@ msgstr "Commande pour réparer les cas de mauvaise conduite."
 msgid "Set a channel as the modlog.\n\n"
 "        Omit `[channel]` to disable the modlog.\n"
 "        "
-msgstr "Définir un salon comme modlog.\n\n"
-"        Omettre `[channel]` pour désactiver le modlog.\n"
-"        "
+msgstr ""
 
 #: redbot/cogs/modlog/modlog.py:55
 msgid "Mod events will be sent to {channel}."
@@ -99,7 +97,7 @@ msgstr "Les arguments ont été réinitialisés."
 
 #: redbot/cogs/modlog/modlog.py:120
 msgid "No changes have been made."
-msgstr "Aucune modification n'a été faite."
+msgstr ""
 
 #: redbot/cogs/modlog/modlog.py:125
 #, docstring
