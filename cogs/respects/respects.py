@@ -323,7 +323,9 @@ class Respects(commands.Cog):
                         users = "{}, {}".format(userObj.name, users)
                 message = "**{}** have paid their respects {}".format(users, choice(HEARTS))
 
-            newReference = oldReference if oldReference else ctx.message.reference
+            newReference = ctx.message.reference if ctx.message.reference else oldReference
+            if newReference:
+                newReference.fail_if_not_exists = False
 
             messageObj = await ctx.send(
                 message,
