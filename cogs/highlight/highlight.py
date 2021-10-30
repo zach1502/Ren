@@ -8,9 +8,11 @@ import os
 import logging
 import re
 from threading import Lock
+from typing import List
 import asyncio
 import aiohttp
 import discord
+from discord.ext import tasks
 from redbot.core import Config, checks, commands, data_manager
 from redbot.core.bot import Red
 from redbot.core.commands.context import Context
@@ -26,7 +28,7 @@ KEY_TIMEOUT = "timeout"
 KEY_WORDS = "words"
 KEY_WORDS_IGNORE = "ignoreWords"
 KEY_CHANNEL_IGNORE = "userIgnoreChannelID"
-KEY_CHANNEL_DENYLIST = "denylistChannels"
+KEY_CHANNEL_DENYLIST = "denylistChannelID"
 
 BASE_GUILD_MEMBER = {
     KEY_BLACKLIST: [],
@@ -69,6 +71,12 @@ class Highlight(commands.Cog):
             )
             self.logger.addHandler(handler)
 
+        self.guildDenyListCleanup.start()
+
+    def cog_unload(self):
+        self.logger.info("Cancelling background task")
+        self.guildDenyListCleanup.cancel()
+
     @commands.group(name="highlight", aliases=["hl"])
     @commands.guild_only()
     async def highlight(self, ctx):
@@ -92,10 +100,23 @@ class Highlight(commands.Cog):
     async def guildChannelsDenyList(self, ctx: Context):
         """List the channels in the denylist."""
         dlChannels = await self.config.guild(ctx.guild).get_attr(KEY_CHANNEL_DENYLIST)()
+        channelMentions: List[str] = []
 
         if dlChannels:
+            channelMentions = [
+                channelObject.mention
+                for channelObject in list(
+                    map(
+                        lambda chId: discord.utils.get(ctx.guild.text_channels, id=chId),
+                        dlChannels,
+                    )
+                )
+                if channelObject
+            ]
+
+        if channelMentions:
             pageList = []
-            msg = "\n".join(dlChannels)
+            msg = "\n".join(channelMentions)
             pages = list(chat_formatting.pagify(msg, page_length=300))
             totalPages = len(pages)
             totalEntries = len(dlChannels)
@@ -111,40 +132,40 @@ class Highlight(commands.Cog):
             await ctx.send(f"There are no channels on the denylist for **{ctx.guild.name}**!")
 
     @guildChannels.command(name="add")
-    async def guildChannelsDenyAdd(self, ctx: Context, channelName: str):
+    async def guildChannelsDenyAdd(self, ctx: Context, channel: discord.TextChannel):
         """Add a channel to the denylist.
 
         Channels in this list will NOT trigger user highlights.
 
         Parameters:
         -----------
-        channelName: str
-            The channel name you wish to not trigger user highlights for.
+        channel: discord.TextChannel
+            The channel you wish to not trigger user highlights for.
         """
         async with self.config.guild(ctx.guild).get_attr(KEY_CHANNEL_DENYLIST)() as dlChannels:
-            if channelName in dlChannels:
-                await ctx.send(f"**{channelName}** is already on the denylist.")
+            if channel.id in dlChannels:
+                await ctx.send(f"**{channel.mention}** is already on the denylist.")
             else:
-                dlChannels.append(channelName)
+                dlChannels.append(channel.id)
                 await ctx.send(
-                    f"Messages in **{channelName}** will no longer trigger highlights for users"
+                    f"Messages in **{channel.mention}** will no longer trigger highlights for users"
                 )
 
     @guildChannels.command(name="del", aliases=["delete", "remove", "rm"])
-    async def guildChannelsDenyDelete(self, ctx: Context, channelName: str):
+    async def guildChannelsDenyDelete(self, ctx: Context, channel: discord.TextChannel):
         """Remove a channel from the denylist.
 
         Parameters:
         -----------
-        channelName: str
-            The channel name you wish to remove from the denylist.
+        channel: discord.TextChannel
+            The channel you wish to remove from the denylist.
         """
         async with self.config.guild(ctx.guild).get_attr(KEY_CHANNEL_DENYLIST)() as dlChannels:
-            if channelName in dlChannels:
-                dlChannels.remove(channelName)
-                await ctx.send(f"**{channelName}** removed from the denylist.")
+            if channel.id in dlChannels:
+                dlChannels.remove(channel.id)
+                await ctx.send(f"**{channel.mention}** removed from the denylist.")
             else:
-                await ctx.send(f"**{channelName}** is not on the denylist.")
+                await ctx.send(f"**{channel.mention}** is not on the denylist.")
 
     @highlight.command(name="add")
     @commands.guild_only()
@@ -630,7 +651,7 @@ class Highlight(commands.Cog):
 
         guildConfig = self.config.guild(msg.channel.guild)
         # Prevent messages in a denylist channel from triggering highlight words
-        if msg.channel.name in await guildConfig.get_attr(KEY_CHANNEL_DENYLIST)():
+        if msg.channel.id in await guildConfig.get_attr(KEY_CHANNEL_DENYLIST)():
             self.logger.debug("Message is from a denylist channel, returning")
             return
 
@@ -757,6 +778,25 @@ class Highlight(commands.Cog):
                 user.discriminator,
                 user.id,
             )
+
+    @tasks.loop(minutes=60)
+    async def guildDenyListCleanup(self):
+        self.logger.info("Checking for stale channel IDs...")
+        for guild in self.bot.guilds:
+            self.logger.debug("Checking guild %s (%s)", guild.name, guild.id)
+            channelsToRemove = []
+            async with self.config.guild(guild).get_attr(KEY_CHANNEL_DENYLIST)() as dlChannels:
+                for channelId in dlChannels:
+                    if not discord.utils.get(guild.text_channels, id=channelId):
+                        channelsToRemove.append(channelId)
+                for channelId in channelsToRemove:
+                    self.logger.info("Removing non-existent channel ID %s", channelId)
+                    dlChannels.remove(channelId)
+
+    @guildDenyListCleanup.before_loop
+    async def guildDenyListCleanupWaitForBot(self):
+        self.logger.debug("Waiting for bot to be ready...")
+        await self.bot.wait_until_ready()
 
     # Event listeners
     @commands.Cog.listener("on_message")
