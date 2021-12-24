@@ -848,7 +848,7 @@ class Tags(commands.Cog):
             The new tag name.
         """
         try:
-            aliasCog = self.checkAliasCog(newName)
+            aliasCog = await self.checkAliasCog(ctx, newName)
             self.checkValidCommandName(newName)
         except RuntimeError as error:
             return await ctx.send(error)
@@ -882,6 +882,7 @@ class Tags(commands.Cog):
             return
 
         db[newName] = deepcopy(db[oldName])
+        db[newName].name = newName
         del db[oldName]
 
         await self.config.put(location, db)
