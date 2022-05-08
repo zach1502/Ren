@@ -52,7 +52,7 @@ guild_defaults = {
     "Memberships": {},
     "Settings": {
         "Global": False,
-        "Casino_Name": "Redjumpman's",
+        "Casino_Name": "Ren's",
         "Casino_Open": True,
         "Payout_Switch": False,
         "Payout_Limit": 10000,
@@ -79,7 +79,7 @@ guild_defaults = {
             "Cooldown": 5,
             "Max": 10,
             "Min": 10,
-            "Multiplier": 1.5,
+            "Multiplier": 1.71,
             "Open": True,
         },
         "Craps": {
@@ -95,7 +95,7 @@ guild_defaults = {
             "Cooldown": 5,
             "Max": 100,
             "Min": 25,
-            "Multiplier": 1.8,
+            "Multiplier": 3.42,
             "Open": True,
         },
         "Dice": {
@@ -103,7 +103,7 @@ guild_defaults = {
             "Cooldown": 5,
             "Max": 100,
             "Min": 25,
-            "Multiplier": 1.8,
+            "Multiplier": 4.11,
             "Open": True,
         },
         "Hilo": {
@@ -122,7 +122,13 @@ guild_defaults = {
             "Multiplier": None,
             "Open": True,
         },
-        "War": {"Access": 0, "Cooldown": 5, "Min": 25, "Max": 75, "Multiplier": 1.5, "Open": True},
+        "War": {
+            "Access": 0,
+            "Cooldown": 5,
+            "Min": 25,
+            "Max": 75,
+            "Multiplier": 1.71,
+            "Open": True},
     },
 }
 
