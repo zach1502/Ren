@@ -7,6 +7,7 @@ class Constants:
     EMBED_LOCATION = 'cogs\\stockmarket\\chart.jpg'
     TRANSACTION_CANCELLED_STR = 'Transaction cancelled!'
     INVALID_TICKER_STR = 'Invalid ticker symbol!'
+    INVALID_AMOUNT_STR = 'Invalid amount!'
     POOR_STR = 'You do not have enough money to buy this stock!'
     ACCOUNT_NOT_FOUND_STR = '''No account found! Please create an account using `renmarket createacc`.''' #.format(get prefix somehow)
     QUIPS = ['Ready to Donate your money to Wall Street I see?',
