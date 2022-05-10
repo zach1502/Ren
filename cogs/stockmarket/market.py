@@ -6,7 +6,7 @@ import asyncio
 import time
 import datetime
 import matplotlib.pyplot as plt
-import yfinance as yf # pip install yfinance
+import yfinance as yf  # pip install yfinance
 import discord
 from datetime import datetime
 
@@ -16,10 +16,10 @@ from redbot.core.utils.predicates import MessagePredicate
 from .constants import Constants as const
 
 
-#80 Char line
+# 80 Char line
 ###############################################################################
 # To Do:
-# 1. REFRACTOR 
+# 1. REFRACTOR
 # 2. Make not spaghetti
 # 3. Make pythonic
 
@@ -75,7 +75,7 @@ class Market(commands.Cog):
         await self.bot.wait_until_ready()
         while True:
             await self.check_events()
-            await asyncio.sleep(86400) # once a day will suffice 
+            await asyncio.sleep(86400)
 
     async def check_events(self):
         """Checks if any events are due and pays them out"""
@@ -105,7 +105,7 @@ class Market(commands.Cog):
                         # order doesn't matter since companies always try to avoid paying out dividends/splits at the same time
                         # pay out the dividend
                         shares_owned = holding['amount']
-                        member_object = None # expected to change
+                        member_object = None  # expected to change
 
                         # pay dividend
                         if dividend_due_per_share > 0:
@@ -137,7 +137,6 @@ class Market(commands.Cog):
                             'split_ratio': split_due_per_share
                         })
 
-
     @commands.group()
     async def market(self, ctx):
         """Manage your Money! Manage your Life! Invest into the FUTURE!\n
@@ -146,7 +145,7 @@ class Market(commands.Cog):
         """
 
     @market.command(name="sell")
-    async def sell_stock(self, ctx, ticker: str, amount_to_sell : int = 0,  user_id: discord.Member = None):
+    async def sell_stock(self, ctx, ticker: str, amount_to_sell: int=0,  user_id: discord.Member=None):
         """Sell a user-specified amount of a stock"""
         ticker = ticker.upper()
 
@@ -159,7 +158,7 @@ class Market(commands.Cog):
                     amount_owned = holding['amount']
 
                     while True:
-                        ticker_info = yf.Ticker(ticker).info # this is a very big bottleneck
+                        ticker_info = yf.Ticker(ticker).info  # this is a very big bottleneck
                         price = ticker_info['regularMarketPrice']
 
                         if price is None:
@@ -182,10 +181,11 @@ class Market(commands.Cog):
                                 if holding['amount'] == 0:
                                     holdings.remove(holding)
 
-                                embed = discord.Embed(color=0x00FF00, title=const.BROKER_NAME,
-                                description=f'''You have sold {amount_to_sell}
-                                shares of {ticker} at {price} {currency_name}s each, 
-                                for a total of {amount_to_sell * price} {currency_name}s''')
+                                embed = discord.Embed(color=0x00FF00,
+                                                      title=const.BROKER_NAME,
+                                                      description=f'''You have sold {amount_to_sell}
+                                                      shares of {ticker} at {price} {currency_name}s each,
+                                                      for a total of {amount_to_sell * price} {currency_name}s''')
 
                                 old = await bank.get_balance(ctx.author)
                                 new = await bank.deposit_credits(ctx.author, amount_to_sell * price)
@@ -207,8 +207,8 @@ class Market(commands.Cog):
 
                         embed = await self.build_embed(ctx, price, ticker, ticker_info)
                         embed.add_field(name='How many shares would you like to sell?',
-                        value=f'You currently own {amount_owned} shares of {ticker} at {price} {currency_name} each.',
-                        inline=False)
+                                        value=f'You currently own {amount_owned} shares of {ticker} at {price} {currency_name} each.',
+                                        inline=False)
 
                         # sends image as attachment
                         # thinking of just embeding the image via a link just so it looks prettier
@@ -236,10 +236,11 @@ class Market(commands.Cog):
 
                             holding['amount'] -= amount_to_sell
 
-                            new_embed = discord.Embed(color=0x00FF00, title=const.BROKER_NAME,
-                            description=f'''You have sold {amount_to_sell}
-                            shares of {ticker} at {price} {currency_name}s each, 
-                            for a total of {amount_to_sell * price} {currency_name}s''')
+                            new_embed = discord.Embed(color=0x00FF00,
+                                                      title=const.BROKER_NAME,
+                                                      description=f'''You have sold {amount_to_sell}
+                                                      shares of {ticker} at {price} {currency_name}s each,\n
+                                                      for a total of {amount_to_sell * price} {currency_name}s''')
 
                             old = await bank.get_balance(ctx.author)
                             new = await bank.deposit_credits(ctx.author, amount_to_sell * price)
@@ -262,20 +263,19 @@ class Market(commands.Cog):
                             return
 
                         if amount_to_sell == 0:
-                            new_embed = discord.Embed(color=0xFF0000, title=const.BROKER_NAME,
-                            description=const.TRANSACTION_CANCELLED_STR)
+                            new_embed = discord.Embed(color=0xFF0000,
+                                                      title=const.BROKER_NAME,
+                                                      description=const.TRANSACTION_CANCELLED_STR)
 
                             await sent_message.edit(embed=new_embed)
                             return
 
                         await ctx.send(f'You do not have that many shares of {ticker}!')
 
-        
         await ctx.send(f'You do not own any shares of {ticker}!')
 
-
     @market.command(name="buy")
-    async def buy_stock(self, ctx, ticker: str, amount_to_buy : int = 0, user_id: discord.Member = None):
+    async def buy_stock(self, ctx, ticker: str, amount_to_buy: int=0, user_id: discord.Member=None):
         """
         Buy a stock! The specified ticker may require a suffix representing the exchange.
         By default, its assumed to be in the American stock exchanges. (NASDAQ, NYSE, AMEX)
@@ -295,9 +295,9 @@ class Market(commands.Cog):
         if user_id is None:
             user_id = ctx.author.id
 
-        ticker_info = yf.Ticker(ticker).info 
-        
-        price = ticker_info['regularMarketPrice'] # may return None
+        ticker_info = yf.Ticker(ticker).info
+
+        price = ticker_info['regularMarketPrice']
         if price is None:
             await ctx.send(const.INVALID_TICKER_STR)
             return
@@ -323,8 +323,9 @@ class Market(commands.Cog):
             return
         elif amount_to_buy > 0:
             await bank.withdraw_credits(ctx.author, amount_to_buy * price)
-            embed = discord.Embed(color=0x00FF00, title=const.BROKER_NAME,
-            description='Shares Purchased!')
+            embed = discord.Embed(color=0x00FF00,
+                                  title=const.BROKER_NAME,
+                                  description='Shares Purchased!')
             await ctx.send(embed=embed)
 
             async with self.config.member(ctx.author).transactions() as transactions:
@@ -334,7 +335,7 @@ class Market(commands.Cog):
                     'date': datetime.utcfromtimestamp((int)(time.time())).strftime('%Y-%m-%d %H:%M:%S'),
                     'shares_bought': amount_to_buy,
                     'bought_price': price,
-                    'amount_recieved': amount_to_buy * -price
+                    'amount_spent': amount_to_buy * price
                 })
             return
 
@@ -343,7 +344,8 @@ class Market(commands.Cog):
             embed = await self.build_embed(ctx, price, ticker, ticker_info)
 
             embed.add_field(name='How many shares would you like to buy?',
-            value=f'You can buy up to {maximum_purchasable} shares of {ticker}', inline=False)
+                            value=f'You can buy up to {maximum_purchasable} shares of {ticker}',
+                            inline=False)
 
             # No Chart? then it doesn't exist
             if not await self.get_embed_chart(ticker):
@@ -368,13 +370,15 @@ class Market(commands.Cog):
                 break
 
             if amount_to_buy == 0:
-                new_embed = discord.Embed(color=0xFF0000, title=const.BROKER_NAME,
-                description=const.TRANSACTION_CANCELLED_STR)
+                new_embed = discord.Embed(color=0xFF0000,
+                                          title=const.BROKER_NAME,
+                                          description=const.TRANSACTION_CANCELLED_STR)
                 await sent_message.edit(embed=new_embed)
                 return
 
-        new_embed = discord.Embed(color=0x00FF00, title=const.BROKER_NAME,
-        description='Shares Purchased!')
+        new_embed = discord.Embed(color=0x00FF00,
+                                  title=const.BROKER_NAME,
+                                  description='Shares Purchased!')
         await sent_message.edit(embed=new_embed)
         await bank.withdraw_credits(ctx.author, amount_to_buy * price)
 
@@ -389,7 +393,6 @@ class Market(commands.Cog):
                         holding['amount'] += amount_to_buy
                         break
 
-        
         async with self.config.member(ctx.author).transactions() as transactions:
             transactions.append({
                 'type': 'buy',
@@ -399,10 +402,9 @@ class Market(commands.Cog):
                 'bought_price': price,
                 'amount_recieved': amount_to_buy * -price
             })
-        
 
     @market.command(name="holdings")
-    async def list_holdings(self, ctx, user_id: discord.Member = None):
+    async def list_holdings(self, ctx, user_id: discord.Member=None):
         """Lists all of your stocks and everything else that is in your portfolio"""
 
         async with self.config.member(ctx.author).holdings() as holdings:
@@ -410,30 +412,30 @@ class Market(commands.Cog):
                 await ctx.send(f'{ctx.author.mention} you do not own any shares!')
                 return
 
-            port_value = 0
+            # port_value = 0
             msg = 'You own the following stocks:\n ```css\n'
 
             print(holdings)
-            
+
             for holding in holdings:
                 ticker = holding['ticker']
                 amount = holding['amount']
                 msg += f'[{amount}] shares of [{ticker}]\n'
 
                 # getting the ticker info takes way to long. thinking about creating a cache filled with ticker info
-                #port_value += amount * ceil(yf.Ticker(ticker).info['regularMarketPrice'] * 100)
+                # port_value += amount * ceil(yf.Ticker(ticker).info['regularMarketPrice'] * 100)
 
-        #port_value = str(port_value) + " " + await bank.get_currency_name(ctx.guild)
-       # msg += f'\n your portfolio\'s total value is: {port_value}!```'
+        # port_value = str(port_value) + " " + await bank.get_currency_name(ctx.guild)
+        # msg += f'\n your portfolio\'s total value is: {port_value}!```'
         msg += '```'
         await ctx.send(msg)
 
     # chart
     @market.command(name="chart")
-    async def get_chart(self, ctx, ticker: str, period_str = '1d', interval_str = '5m'):
+    async def get_chart(self, ctx, ticker: str, period_str='1d', interval_str='5m'):
         """Gets a chart of a stock, period and interval can be specified"""
         await self.get_embed_chart(ticker, period_str, interval_str)
-        await ctx.send(file = discord.File(const.EMBED_LOCATION, filename = ticker + ".jpg"))
+        await ctx.send(file=discord.File(const.EMBED_LOCATION, filename=ticker + ".jpg"))
 
     # Simple Information
     @market.command(name="info")
@@ -452,23 +454,24 @@ class Market(commands.Cog):
             embed.add_field(name=f'About {ticker}', value=summary, inline=False)
         except KeyError:
             embed.add_field(name=f'About {ticker}',
-            value=f'No information found for ticker {ticker}', inline=False)
+                            value=f'No information found for ticker {ticker}',
+                            inline=False)
 
         await ctx.send(embed=embed)
 
     # Simple Information
     @market.command(name="transactions")
-    async def get_sinfo(self, ctx, num_results: int = 10):
+    async def get_sinfo(self, ctx, num_results: int=10):
         """lists the last num_results transactions for a member"""
 
         async with self.config.member(ctx.author).transactions() as transactions:
             if not transactions:
                 await ctx.send(f'{ctx.author.mention} you have not made any transactions!')
                 return
-            
+
             if num_results > len(transactions):
                 num_results = len(transactions)
-            
+
             msg = f'{ctx.author.mention} your last {num_results} transactions:\n'
             msg += '```css\n'
             for transaction in transactions[-num_results:]:
@@ -485,19 +488,17 @@ class Market(commands.Cog):
                         msg += f'Dividend [{ticker:<8}] [{transaction["dividend_amount"]:<8}] @ {date_str}\n'
                     if transaction["split_ratio"] != 0:
                         msg += f'Split   [{ticker:<8}] [{transaction["split_ratio"]:<8}] @ {date_str}\n'
-            
+
             msg += '```'
 
             await ctx.send(msg)
 
-        
-
-    async def get_embed_chart(self, ticker, period_str = '1d', interval_str = '5m'):
+    async def get_embed_chart(self, ticker, period_str='1d', interval_str='5m'):
         """Gets the chart of the requested stock"""
         plt.clf()
         ticker = ticker.upper()
         # Get the data.. takes like 0.2s
-        data = yf.download(ticker, period = period_str, interval = interval_str)
+        data = yf.download(ticker, period=period_str, interval=interval_str)
 
         if len(data['Close']) == 0:
             return False
@@ -509,8 +510,8 @@ class Market(commands.Cog):
         plt.ylabel('Price')
         plt.grid()
 
-        #convert to webp????
-        plt.savefig(const.EMBED_LOCATION, bbox_inches='tight') # note: saved as .jpg
+        # convert to webp????
+        plt.savefig(const.EMBED_LOCATION, bbox_inches='tight')  # note: saved as .jpg
         return True
 
     # so messy...
@@ -519,10 +520,11 @@ class Market(commands.Cog):
         currency_name = " " + await bank.get_currency_name(ctx.guild)
         quote_type = ticker_info['quoteType']
 
-        embed = discord.Embed(color=0x424549, title=const.BROKER_NAME,
-        description="*\""+const.QUIPS[random.randint(0, len(const.QUIPS) - 1)]+"\"*")
+        embed = discord.Embed(color=0x424549,
+                              title=const.BROKER_NAME,
+                              description="*\""+const.QUIPS[random.randint(0, len(const.QUIPS) - 1)]+"\"*")
 
-        embed.add_field(name='Ticker', value=ticker_info['shortName'] +"\n"+ ticker, inline=True)
+        embed.add_field(name='Ticker', value=ticker_info['shortName'] + "\n" + ticker, inline=True)
         embed.add_field(name='Current Price', value=str(price) + currency_name, inline=True)
         embed.add_field(name='Investment Type', value=quote_type, inline=True)
 
@@ -533,33 +535,33 @@ class Market(commands.Cog):
 
             try:
                 embed.add_field(name='Trailing P/E',
-                value=f"{ticker_info['trailingPE']:.2f}",
-                inline=True)
+                                value=f"{ticker_info['trailingPE']:.2f}",
+                                inline=True)
             except KeyError:
                 embed.add_field(name='Trailing P/E',
-                value="NaN",
-                inline=True)
+                                value="NaN",
+                                inline=True)
 
         elif quote_type == 'ETF':
             embed.add_field(name='Exchange', value=ticker_info['exchange'], inline=True)
 
             top_holdings = ''
-            for key in range(0,3):
-                top_holdings += f"""{ticker_info['holdings'][key]['symbol']}: 
+            for key in range(0, 3):
+                top_holdings += f"""{ticker_info['holdings'][key]['symbol']}:
                 {ticker_info['holdings'][key]['holdingPercent'] * 100:.2f}%\n"""
             if top_holdings == '':
                 top_holdings = 'NaN'
-            embed.add_field(name='Top 3 Holdings', value = top_holdings, inline = True)
+            embed.add_field(name='Top 3 Holdings', value=top_holdings, inline=True)
 
-            embed.add_field(name='Assets Under Management', value = ticker_info['totalAssets'])
+            embed.add_field(name='Assets Under Management', value=ticker_info['totalAssets'])
 
-        embed.add_field(name='Open', value=ticker_info['open'],inline=True)
-        embed.add_field(name='High', value=ticker_info['dayHigh'],inline=True)
-        embed.add_field(name='Low', value=ticker_info['regularMarketDayLow'],inline=True)
+        embed.add_field(name='Open', value=ticker_info['open'], inline=True)
+        embed.add_field(name='High', value=ticker_info['dayHigh'], inline=True)
+        embed.add_field(name='Low', value=ticker_info['regularMarketDayLow'], inline=True)
 
-        embed.add_field(name='52-Week Low', value=ticker_info['fiftyTwoWeekLow'],inline=True)
-        embed.add_field(name='52-week high', value=ticker_info['fiftyTwoWeekHigh'] , inline=True)
-        embed.add_field(name='Volume', value=ticker_info['volume'],inline=True)
+        embed.add_field(name='52-Week Low', value=ticker_info['fiftyTwoWeekLow'], inline=True)
+        embed.add_field(name='52-week high', value=ticker_info['fiftyTwoWeekHigh'], inline=True)
+        embed.add_field(name='Volume', value=ticker_info['volume'], inline=True)
 
         embed.set_footer(text='Enter 0 to cancel')
 
