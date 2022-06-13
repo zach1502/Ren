@@ -56,9 +56,7 @@ class AfterHours(commands.Cog):
         # Initialize logger, and save to cog folder.
         saveFolder = data_manager.cog_data_path(cog_instance=self)
         self.logger = logging.getLogger("red.luicogs.AfterHours")
-        if self.logger.level == 0:
-            # Prevents the self.logger from being loaded again in case of module reload.
-            self.logger.setLevel(logging.INFO)
+        if not self.logger.handlers:
             logPath = os.path.join(saveFolder, "info.log")
             handler = logging.FileHandler(filename=logPath, encoding="utf-8", mode="a")
             handler.setFormatter(
@@ -102,8 +100,19 @@ class AfterHours(commands.Cog):
                     creationTime = datetime.fromtimestamp(data["time"])
                     self.logger.debug("Time difference = %s", datetime.now() - creationTime)
                     if datetime.now() - creationTime > timedelta(seconds=DELETE_TIME):
-                        self.logger.info("Deleting channel %s (%s)", channel.name, channel.id)
-                        await channel.delete(reason="AfterHours purge")
+                        try:
+                            await channel.delete(reason="AfterHours purge")
+                        except discord.Forbidden:
+                            self.logger.error(
+                                "Could not delete channel %s (%s) because "
+                                "the bot doesn't have enough permissions!",
+                                channel.name,
+                                channel.id,
+                                exc_info=True,
+                            )
+                        else:
+                            self.logger.info("Deleted channel %s (%s)", channel.name, channel.id)
+
                         # Don't delete the ID here, this will be taken care of in
                         # the delete listener
                 for channelId in staleIds:
