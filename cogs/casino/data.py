@@ -122,7 +122,7 @@ guild_defaults = {
             "Multiplier": None,
             "Open": True,
         },
-        "War": {"Access": 0, "Cooldown": 5, "Min": 25, "Max": 75, "Multiplier": 1.5, "Open": True}
+        "War": {"Access": 0, "Cooldown": 5, "Min": 25, "Max": 75, "Multiplier": 1.5, "Open": True},
     },
 }
 
