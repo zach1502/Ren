@@ -49,7 +49,6 @@ class Core:
         If you roll any other number you must match it on your
         second roll to win.
     """
-    expected_value = 1.14
 
     def __init__(self, old_message_cache):
         self.old_message_cache = old_message_cache
