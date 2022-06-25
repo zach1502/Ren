@@ -49,7 +49,7 @@ user_defaults = {
 
 guild_defaults = {
     "use_old_style": False,
-        "Memberships": {},
+    "Memberships": {},
     "Settings": {
         "Global": False,
         "Casino_Name": "Redjumpman's",
