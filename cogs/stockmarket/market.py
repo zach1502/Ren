@@ -1,7 +1,5 @@
-""" Here is the Module Docstring"""
-from locale import currency
+from ast import alias
 from math import floor, ceil
-import random
 import asyncio
 import time
 import datetime
@@ -10,10 +8,12 @@ import yfinance as yf  # pip install yfinance
 import discord
 from datetime import datetime
 
-from redbot.core import bank, commands, Config, checks
+from redbot.core import bank, commands, Config
 from redbot.core.utils.predicates import MessagePredicate
+from redbot.core.utils.chat_formatting import box
 
-from .constants import Constants as const
+from .constants import *
+from .utils import *
 
 
 # 80 Char line
@@ -23,7 +23,8 @@ from .constants import Constants as const
 # 2. Make not spaghetti
 # 3. Make pythonic
 
-class Market(commands.Cog):
+
+class Market(commands.Cog, market_utils):
     """The Market class contains all the commands that well,
     connect the bot to the stock markets all around the world.
 
@@ -47,13 +48,11 @@ class Market(commands.Cog):
     [p]market info <ticker> - Displays information about a stock WIP
     [p]market chart <ticker> - Displays a chart of a stock
     """
+
     start = 0
     end = 0
 
-    member_data = {
-        "transactions": [],
-        "holdings": []
-    }
+    member_data = {"transactions": [], "holdings": [], "total_contribution": 0}
 
     def __init__(self, bot):
         self.bot = bot
@@ -77,205 +76,124 @@ class Market(commands.Cog):
             await self.check_events()
             await asyncio.sleep(86400)
 
-    async def check_events(self):
-        """Checks if any events are due and pays them out"""
-
-        # Surely there's something better than this
-        all_member_data = await self.config.all_members(guild=None)
-        for singular_guild_id in all_member_data:
-            for singular_member_id in all_member_data[singular_guild_id]:
-                member_dict = all_member_data[singular_guild_id][singular_member_id]
-                for holding in member_dict['holdings']:
-
-                    ticker = holding['ticker']
-                    actions = yf.Ticker(ticker).actions
-
-                    date = str(actions.index[-1])[:-9]
-                    most_recent_unix = time.mktime(datetime.datetime.strptime(date, "%Y-%m-%d").timetuple())
-
-                    current_unix = time.time()
-
-                    # claimable events
-                    if current_unix > most_recent_unix > holding['initial DOP']:
-
-                        # pay out the dividend and/or split
-                        dividend_due_per_share = actions.iloc[-1][0]
-                        split_due_per_share = actions.iloc[-1][1]
-
-                        # order doesn't matter since companies always try to avoid paying out dividends/splits at the same time
-                        # pay out the dividend
-                        shares_owned = holding['amount']
-                        member_object = None  # expected to change
-
-                        # pay dividend
-                        if dividend_due_per_share > 0:
-                            guild_object = self.bot.get_guild(singular_guild_id)
-                            member_object = await guild_object.query_members(user_ids=singular_member_id)
-                            currency_name = await bank.get_currency_name(guild_object)
-                            dividend_due = ceil(dividend_due_per_share * shares_owned * 100)
-
-                            await bank.deposit_credits(member_object[0], dividend_due)
-                            try:
-                                await member_object[0].send(f"you have received a dividend of {dividend_due} {currency_name} from {ticker}!")
-                            except (discord.Forbidden, discord.NotFound):
-                                print(f"Failed to notify user about receiving a dividend {member_object[0].name} in guild {guild_object.name}")
-
-                        # pay split
-                        if split_due_per_share > 0:
-                            holding['amount'] += holding['amount'] * split_due_per_share
-                            try:
-                                await member_object[0].send(f"you have received a {split_due_per_share} split from {ticker}!")
-                            except (discord.Forbidden, discord.NotFound):
-                                print(f"Failed to notify user about receiving a split {member_object[0].name} in guild {guild_object.name}")
-
-                        # for history
-                        member_dict['transactions'].append({
-                            'type': 'event',
-                            ticker: [most_recent_unix],
-                            'date': datetime.utcfromtimestamp((int)(time.time())).strftime('%Y-%m-%d %H:%M:%S'),
-                            'dividend_amount': ceil(dividend_due_per_share * shares_owned * 100),
-                            'split_ratio': split_due_per_share
-                        })
-
     @commands.group()
-    async def market(self, ctx):
-        """Manage your Money! Manage your Life! Invest into the FUTURE!\n
+    async def market(self, ctx: commands.Context):
+        """Manage your Money! Manage your Life! Invest into the FUTURE!
         This collection of commands allow you to invest your hard earned money,
         into any publicly traded company around the world! #GetRichSlow
         """
+        pass
 
-    @market.command(name="sell")
-    async def sell_stock(self, ctx, ticker: str, amount_to_sell: int=0,  user_id: discord.Member=None):
+    @market.command(name="debug")
+    async def market_debug(self, ctx: commands.Context):
+        """Debugging command"""
+        # print out all the data
+        all_member_data = await self.config.all_members(guild=None)
+        print(all_member_data)
+
+    @market.command(name="sell", aliases=["s"])
+    async def sell_stock(
+        self,
+        ctx: commands.Context,
+        ticker: str,
+        amount_to_sell: int = 0,
+        user_id: discord.Member = None,
+    ):
         """Sell a user-specified amount of a stock"""
         ticker = ticker.upper()
 
         if user_id is None:
-            user_id = ctx.author.id
+            user_id = ctx.author
 
         async with self.config.member(ctx.author).holdings() as holdings:
             for holding in holdings:
-                if holding['ticker'] == ticker:
-                    amount_owned = holding['amount']
+                if holding["ticker"] == ticker:
+                    amount_owned = holding["amount"]
 
-                    while True:
-                        ticker_info = yf.Ticker(ticker).info  # this is a very big bottleneck
-                        price = ticker_info['regularMarketPrice']
+                    ticker_info = await self.yf_ticker_info(ticker)
+                    price = ticker_info["regularMarketPrice"]
 
-                        if price is None:
-                            await ctx.send(const.INVALID_TICKER_STR)
+                    if price is None:
+                        await ctx.send(INVALID_TICKER_STR)
+                        return
+
+                    price = ceil(price * PRICE_MULTIPLIER)
+                    currency_name = await bank.get_currency_name(ctx.guild)
+
+                    # if optional parameter specified
+                    if amount_to_sell != 0:
+                        if amount_to_sell > amount_owned:
+                            await ctx.send(f"You do not have that many shares of {ticker}!")
+                            return
+                        elif amount_to_sell < 0:
+                            await ctx.send(INVALID_AMOUNT_STR)
+                            return
+                        else:
+                            await self.sell(
+                                ctx,
+                                amount_to_sell,
+                                holding,
+                                holdings,
+                                ticker,
+                                price,
+                                currency_name,
+                            )
+                            await self.log_sell(
+                                ctx, ticker, amount_to_sell, price, amount_to_sell * price
+                            )
                             return
 
-                        price = ceil(price * 100)
-                        currency_name = await bank.get_currency_name(ctx.guild)
+                    embed = await self.build_embed(ctx, price, ticker, ticker_info)
+                    embed.add_field(
+                        name="How many shares would you like to sell?",
+                        value=f"You currently own {amount_owned} shares of {ticker} at {price} {currency_name} each.",
+                        inline=False,
+                    )
 
-                        # if optional parameter specified
-                        if amount_to_sell != 0:
-                            if amount_to_sell > amount_owned:
-                                await ctx.send(f'You do not have that many shares of {ticker}!')
-                                return
-                            elif amount_to_sell < 0:
-                                await ctx.send(const.INVALID_AMOUNT_STR)
-                                return
-                            else:
-                                holding['amount'] -= amount_to_sell
-                                if holding['amount'] == 0:
-                                    holdings.remove(holding)
+                    # sends image as attachment
+                    # thinking of just embeding the image via a link just so it looks prettier
+                    # upload image to imgur first or something idk
+                    await self.get_embed_chart(ticker)
+                    embed_file = discord.File(EMBED_LOCATION, filename=ticker + ".jpg")
+                    embed.set_image(url="attachment://image.jpg")
+                    sent_message = await ctx.send(file=embed_file, embed=embed)
 
-                                embed = discord.Embed(color=0x00FF00,
-                                                      title=const.BROKER_NAME,
-                                                      description=f'''You have sold {amount_to_sell}
-                                                      shares of {ticker} at {price} {currency_name}s each,
-                                                      for a total of {amount_to_sell * price} {currency_name}s''')
+                    # await for input
+                    condition = MessagePredicate.positive(ctx, None, ctx.author)
+                    try:
+                        message = await ctx.bot.wait_for("message", check=condition, timeout=35.0)
+                    except asyncio.TimeoutError:
+                        self.cancel_transaction(sent_message)
+                        return
 
-                                old = await bank.get_balance(ctx.author)
-                                new = await bank.deposit_credits(ctx.author, amount_to_sell * price)
+                    amount_to_sell = int(message.content)
 
-                                embed.add_field(name='Previous Balance:', value=old)
-                                embed.add_field(name='New Balance:', value=new)
-                                await ctx.send(embed=embed)
+                    if 0 < amount_to_sell <= holding["amount"]:
+                        await self.sell(
+                            ctx, amount_to_sell, holding, holdings, ticker, price, currency_name
+                        )
+                        await self.log_sell(
+                            ctx, ticker, amount_to_sell, price, amount_to_sell * price
+                        )
+                        return
 
-                                async with self.config.member(ctx.author).transactions() as transactions:
-                                    transactions.append({
-                                        'type': 'sell',
-                                        'ticker': ticker,
-                                        'date': datetime.utcfromtimestamp((int)(time.time())).strftime('%Y-%m-%d %H:%M:%S'),
-                                        'shares_sold': amount_to_sell,
-                                        'sold_price': price,
-                                        'amount_recieved': amount_to_sell * price
-                                    })
-                                return
+                    if amount_to_sell == 0:
+                        self.cancel_transaction(sent_message)
+                        return
 
-                        embed = await self.build_embed(ctx, price, ticker, ticker_info)
-                        embed.add_field(name='How many shares would you like to sell?',
-                                        value=f'You currently own {amount_owned} shares of {ticker} at {price} {currency_name} each.',
-                                        inline=False)
+                    await ctx.send(f"You do not have that many shares of {ticker}!")
+                    return
 
-                        # sends image as attachment
-                        # thinking of just embeding the image via a link just so it looks prettier
-                        # upload image to imgur first or something idk
-                        await self.get_embed_chart(ticker)
-                        embed_file = discord.File(const.EMBED_LOCATION, filename=ticker + ".jpg")
-                        embed.set_image(url="attachment://image.jpg")
+        await ctx.send(f"You do not own any shares of {ticker}!")
 
-                        sent_message = await ctx.send(file=embed_file, embed=embed)
-
-                        # await for input
-                        condition = MessagePredicate.positive(ctx, None, ctx.author)
-                        try:
-                            message = await ctx.bot.wait_for("message", check=condition, timeout=35.0)
-                        except asyncio.TimeoutError:
-                            new_embed = discord.Embed(color=0xFF0000, title=const.BROKER_NAME, description=const.TRANSACTION_CANCELLED_STR)
-                            await sent_message.edit(embed=new_embed)
-                            return
-
-                        amount_to_sell = int(message.content)
-
-                        if 0 < amount_to_sell <= holding['amount']:
-                            if amount_to_sell == holding['amount']:
-                                holdings.remove(holding)
-
-                            holding['amount'] -= amount_to_sell
-
-                            new_embed = discord.Embed(color=0x00FF00,
-                                                      title=const.BROKER_NAME,
-                                                      description=f'''You have sold {amount_to_sell}
-                                                      shares of {ticker} at {price} {currency_name}s each,\n
-                                                      for a total of {amount_to_sell * price} {currency_name}s''')
-
-                            old = await bank.get_balance(ctx.author)
-                            new = await bank.deposit_credits(ctx.author, amount_to_sell * price)
-
-                            new_embed.add_field(name='Previous Balance:', value=old)
-                            new_embed.add_field(name='New Balance:', value=new)
-                            await sent_message.edit(embed=new_embed)
-
-                            # append to transactions
-                            async with self.config.member(ctx.author).transactions() as transactions:
-                                transactions.append({
-                                    'type': 'sell',
-                                    'ticker': ticker,
-                                    'date': datetime.utcfromtimestamp((int)(time.time())).strftime('%Y-%m-%d %H:%M:%S'),
-                                    'shares_sold': amount_to_sell,
-                                    'sold_price': price,
-                                    'amount_recieved': amount_to_sell * price
-                                })
-
-                            return
-
-                        if amount_to_sell == 0:
-                            new_embed = discord.Embed(color=0xFF0000,
-                                                      title=const.BROKER_NAME,
-                                                      description=const.TRANSACTION_CANCELLED_STR)
-
-                            await sent_message.edit(embed=new_embed)
-                            return
-
-                        await ctx.send(f'You do not have that many shares of {ticker}!')
-
-        await ctx.send(f'You do not own any shares of {ticker}!')
-
-    @market.command(name="buy")
-    async def buy_stock(self, ctx, ticker: str, amount_to_buy: int=0, user_id: discord.Member=None):
+    @market.command(name="buy", aliases=["b"])
+    async def buy_stock(
+        self,
+        ctx: commands.Context,
+        ticker: str,
+        amount_to_buy: int = 0,
+        user_id: discord.Member = None,
+    ):
         """
         Buy a stock! The specified ticker may require a suffix representing the exchange.
         By default, its assumed to be in the American stock exchanges. (NASDAQ, NYSE, AMEX)
@@ -286,6 +204,9 @@ class Market(commands.Cog):
         Tokyo Stock Exchange (TYO) = .t
         Hong Kong Stock Exchange (HKSE) = .hk
         Shenzhen Stock Exchange (SZSE) = .sz
+        Swiss Stock Exchange (SwSE) = .sw
+        Paris Stock Exchange (PSE) = .par
+        London Stock Exchange (LSE) = .l
 
         Tickers for companies may be searched for on https://ca.finance.yahoo.com/
         Tickers are case-insensitive
@@ -293,195 +214,160 @@ class Market(commands.Cog):
         ticker = ticker.upper()
 
         if user_id is None:
-            user_id = ctx.author.id
+            user_id = ctx.author
 
-        ticker_info = yf.Ticker(ticker).info
+        ticker_info = await self.yf_ticker_info(ticker)
 
-        price = ticker_info['regularMarketPrice']
-        if price is None:
-            await ctx.send(const.INVALID_TICKER_STR)
-            return
-        if ticker_info['quoteType'] == 'INDEX':
-            await ctx.send(const.INVALID_TICKER_STR)
-            return
-        if ticker_info['quoteType'] == 'MUTUAL FUND':
-            await ctx.send(const.INVALID_TICKER_STR)
+        price = ticker_info["regularMarketPrice"]
+
+        if await self.is_invalid_ticker(ticker_info):
+            await ctx.send(INVALID_TICKER_STR)
             return
 
-        price = ceil(price * 100)
+        price = ceil(price * PRICE_MULTIPLIER)
 
         # Get current price
         balance = await bank.get_balance(ctx.author)
         maximum_purchasable = floor(balance / price)
 
         if maximum_purchasable == 0:
-            await ctx.send(const.POOR_STR)
+            await ctx.send(POOR_STR)
             return
 
         if amount_to_buy < 0:
-            await ctx.send(const.INVALID_AMOUNT_STR)
-            return
-        elif amount_to_buy > 0:
-            await bank.withdraw_credits(ctx.author, amount_to_buy * price)
-            embed = discord.Embed(color=0x00FF00,
-                                  title=const.BROKER_NAME,
-                                  description='Shares Purchased!')
-            await ctx.send(embed=embed)
-
-            async with self.config.member(ctx.author).transactions() as transactions:
-                transactions.append({
-                    'type': 'buy',
-                    'ticker': ticker,
-                    'date': datetime.utcfromtimestamp((int)(time.time())).strftime('%Y-%m-%d %H:%M:%S'),
-                    'shares_bought': amount_to_buy,
-                    'bought_price': price,
-                    'amount_spent': amount_to_buy * price
-                })
+            await ctx.send(INVALID_AMOUNT_STR)
             return
 
-        while True:
-            # build & send embed
-            embed = await self.build_embed(ctx, price, ticker, ticker_info)
+        if amount_to_buy > 0:
+            await self.buy(ctx, amount_to_buy, price, ticker, None)
+            await self.log_buy(ctx, ticker, amount_to_buy, price, amount_to_buy * price)
+            return
 
-            embed.add_field(name='How many shares would you like to buy?',
-                            value=f'You can buy up to {maximum_purchasable} shares of {ticker}',
-                            inline=False)
+        # build & send embed
+        embed = await self.build_embed(ctx, price, ticker, ticker_info)
 
-            # No Chart? then it doesn't exist
-            if not await self.get_embed_chart(ticker):
-                await ctx.send(const.INVALID_TICKER_STR)
-                return
-            embed_file = discord.File(const.EMBED_LOCATION, filename=ticker + ".jpg")
-            embed.set_image(url="attachment://image.jpg")
+        embed.add_field(
+            name="How many shares would you like to buy?",
+            value=f"You can buy up to {maximum_purchasable} shares of {ticker}",
+            inline=False,
+        )
 
-            sent_message = await ctx.send(file=embed_file, embed=embed)
+        # No Chart? then it doesn't exist
+        if not await self.get_embed_chart(ticker):
+            await ctx.send(INVALID_TICKER_STR)
+            return
 
-            condition = MessagePredicate.positive(ctx, None, ctx.author)
+        embed_file = discord.File(EMBED_LOCATION, filename=ticker + ".jpg")
+        embed.set_image(url="attachment://image.jpg")
+        sent_message = await ctx.send(file=embed_file, embed=embed)
 
-            try:
-                message = await ctx.bot.wait_for("message", check=condition, timeout=35.0)
-            except asyncio.TimeoutError:
-                new_embed = discord.Embed(color=0xFF0000, title=const.BROKER_NAME, description=const.TRANSACTION_CANCELLED_STR)
-                await sent_message.edit(embed=new_embed)
-                return
-            amount_to_buy = int(message.content)
+        condition = MessagePredicate.positive(ctx, None, ctx.author)
+        try:
+            message = await ctx.bot.wait_for("message", check=condition, timeout=35.0)
+        except asyncio.TimeoutError:
+            self.cancel_transaction(sent_message)
+            return
 
-            if 0 < amount_to_buy <= maximum_purchasable:
-                break
+        amount_to_buy = int(message.content)
+        if amount_to_buy == 0:
+            self.cancel_transaction(sent_message)
+            return
 
-            if amount_to_buy == 0:
-                new_embed = discord.Embed(color=0xFF0000,
-                                          title=const.BROKER_NAME,
-                                          description=const.TRANSACTION_CANCELLED_STR)
-                await sent_message.edit(embed=new_embed)
-                return
+        if 0 < amount_to_buy <= maximum_purchasable:
+            await self.buy(ctx, amount_to_buy, price, ticker, sent_message)
+            await self.log_buy(ctx, ticker, amount_to_buy, price, amount_to_buy * price)
+            return
 
-        new_embed = discord.Embed(color=0x00FF00,
-                                  title=const.BROKER_NAME,
-                                  description='Shares Purchased!')
-        await sent_message.edit(embed=new_embed)
-        await bank.withdraw_credits(ctx.author, amount_to_buy * price)
+        await ctx.send(f"You cannot buy that many shares of {ticker}!")
 
-        # add stock to portfolio
-        # Could add more details to each holdings, like average price etc.
-        async with self.config.member(ctx.author).holdings() as holdings:
-            if ticker not in holdings:
-                holdings.append({'ticker': ticker, 'amount': amount_to_buy, 'initial DOP': time.time()})
-            else:
-                for holding in holdings:
-                    if holding['ticker'] == ticker:
-                        holding['amount'] += amount_to_buy
-                        break
-
-        async with self.config.member(ctx.author).transactions() as transactions:
-            transactions.append({
-                'type': 'buy',
-                'ticker': ticker,
-                'date': datetime.utcfromtimestamp((int)(time.time())).strftime('%Y-%m-%d %H:%M:%S'),
-                'shares_bought': amount_to_buy,
-                'bought_price': price,
-                'amount_recieved': amount_to_buy * -price
-            })
-
-    @market.command(name="holdings")
-    async def list_holdings(self, ctx, user_id: discord.Member=None):
+    @market.command(name="holdings", aliases=["portfolio", "p"])
+    async def list_holdings(self, ctx: commands.Context, user_id: discord.Member = None):
         """Lists all of your stocks and everything else that is in your portfolio"""
 
         async with self.config.member(ctx.author).holdings() as holdings:
             if not holdings:
-                await ctx.send(f'{ctx.author.mention} you do not own any shares!')
+                await ctx.send(f"{ctx.author.mention} you do not own any shares!")
                 return
 
             # port_value = 0
-            msg = 'You own the following stocks:\n ```css\n'
+            msg_title = "You own the following stocks:\n"
+            msg = ""
 
-            print(holdings)
+            # print(holdings)
 
             for holding in holdings:
-                ticker = holding['ticker']
-                amount = holding['amount']
-                msg += f'[{amount}] shares of [{ticker}]\n'
+                ticker = holding["ticker"]
+                amount = holding["amount"]
+                msg += f"[{amount}] shares of [{ticker}]\n"
 
                 # getting the ticker info takes way to long. thinking about creating a cache filled with ticker info
-                # port_value += amount * ceil(yf.Ticker(ticker).info['regularMarketPrice'] * 100)
+                # port_value += amount * ceil(yf.Ticker(ticker).info['regularMarketPrice'] * PRICE_MULTIPLIER)
 
         # port_value = str(port_value) + " " + await bank.get_currency_name(ctx.guild)
         # msg += f'\n your portfolio\'s total value is: {port_value}!```'
-        msg += '```'
-        await ctx.send(msg)
+
+        await ctx.send(box(msg_title + msg, lang="css"))
 
     # chart
-    @market.command(name="chart")
-    async def get_chart(self, ctx, ticker: str, period_str='1d', interval_str='5m'):
+    @market.command(name="chart", aliases=["c"])
+    async def get_chart(
+        self, ctx: commands.Context, ticker: str, period_str: str = "1d", interval_str: str = "5m"
+    ):
         """Gets a chart of a stock, period and interval can be specified"""
         await self.get_embed_chart(ticker, period_str, interval_str)
-        await ctx.send(file=discord.File(const.EMBED_LOCATION, filename=ticker + ".jpg"))
+        await ctx.send(file=discord.File(EMBED_LOCATION, filename=ticker + ".jpg"))
 
     # Simple Information
-    @market.command(name="info")
-    async def get_info(self, ctx, ticker: str):
+    @market.command(name="info", aliases=["i"])
+    async def get_info(self, ctx: commands.Context, ticker: str):
         """Gets information about a particular stock"""
         ticker = ticker.upper()
-        info = yf.Ticker(ticker).info
-        print(info)
+        info = await self.yf_ticker_info(ticker)
+        # print(info)
 
-        embed = await self.build_embed(ctx, ceil(info['regularMarketPrice'] * 100), ticker, info)
-        short_name = info['shortName']
-        embed.set_footer(text=f'{ticker} - {short_name}')
+        embed = await self.build_embed(
+            ctx, ceil(info["regularMarketPrice"] * PRICE_MULTIPLIER), ticker, info
+        )
+        short_name = info["shortName"]
+        embed.set_footer(text=f"{ticker} - {short_name}")
         try:
-            summary = info['longBusinessSummary']
-            summary = (summary[:1021] + '...') if len(summary) > 1021 else summary
-            embed.add_field(name=f'About {ticker}', value=summary, inline=False)
+            summary = info["longBusinessSummary"]
+            summary = (
+                (summary[:MAX_MSG_LENGTH] + "...") if len(summary) > MAX_MSG_LENGTH else summary
+            )
+            embed.add_field(name=f"About {ticker}", value=summary, inline=False)
         except KeyError:
-            embed.add_field(name=f'About {ticker}',
-                            value=f'No information found for ticker {ticker}',
-                            inline=False)
+            embed.add_field(
+                name=f"About {ticker}",
+                value=f"No information found for ticker {ticker}",
+                inline=False,
+            )
 
         await ctx.send(embed=embed)
 
     # Simple Information
-    @market.command(name="transactions")
-    async def get_sinfo(self, ctx, num_results: int=10):
+    @market.command(name="transactions", aliases=["trans", "t", "history"])
+    async def get_sinfo(self, ctx: commands.Context, num_results: int = 10):
         """lists the last num_results transactions for a member"""
 
         async with self.config.member(ctx.author).transactions() as transactions:
             if not transactions:
-                await ctx.send(f'{ctx.author.mention} you have not made any transactions!')
+                await ctx.send(f"{ctx.author.mention} you have not made any transactions!")
                 return
 
             if num_results > len(transactions):
                 num_results = len(transactions)
 
-            msg = f'{ctx.author.mention} your last {num_results} transactions:\n'
-            msg += '```css\n'
+            msg = f"{ctx.author.mention} your last {num_results} transactions:\n"
+            msg += "```css\n"
             for transaction in transactions[-num_results:]:
-                type_transaction = transaction['type']
-                ticker = transaction['ticker']
-                date_str = transaction['date']
+                type_transaction = transaction["type"]
+                ticker = transaction["ticker"]
+                date_str = transaction["date"]
 
-                if type_transaction == 'buy':
+                if type_transaction == "buy":
                     msg += f'Bought   [{ticker:<8}] [{transaction["shares_bought"]:<8} shares] for {transaction["bought_price"]:<8} each @ {date_str}\n'
-                elif type_transaction == 'sell':
+                elif type_transaction == "sell":
                     msg += f'Sold     [{ticker:<8}] [{transaction["shares_sold"]:<8} shares] for {transaction["sold_price"]:<8} each {date_str}\n'
                 else:
                     if transaction["dividend_amount"] != 0:
@@ -489,80 +375,180 @@ class Market(commands.Cog):
                     if transaction["split_ratio"] != 0:
                         msg += f'Split   [{ticker:<8}] [{transaction["split_ratio"]:<8}] @ {date_str}\n'
 
-            msg += '```'
+            msg += "```"
 
             await ctx.send(msg)
 
-    async def get_embed_chart(self, ticker, period_str='1d', interval_str='5m'):
-        """Gets the chart of the requested stock"""
-        plt.clf()
-        ticker = ticker.upper()
-        # Get the data.. takes like 0.2s
-        data = yf.download(ticker, period=period_str, interval=interval_str)
+    async def pay_dividend(
+        self,
+        guild_object: discord.Guild,
+        list_of_member_objects: list,
+        dividend_due_per_share: int,
+        shares_owned: int,
+        ticker: str,
+    ):
+        currency_name = await bank.get_currency_name(guild_object)
+        dividend_due = ceil(dividend_due_per_share * shares_owned * PRICE_MULTIPLIER)
 
-        if len(data['Close']) == 0:
-            return False
+        await bank.deposit_credits(list_of_member_objects[0], dividend_due)
+        try:
+            await list_of_member_objects[0].send(
+                f"you have received a dividend of {dividend_due} {currency_name} from {ticker}!"
+            )
+        except (discord.Forbidden, discord.NotFound):
+            print(
+                f"Failed to notify user about receiving a dividend {list_of_member_objects[0].name} in guild {guild_object.name}"
+            )
 
-        # Plot the data using the close data
-        data['Close'].plot(color='red' if (data['Close'][0] - data['Close'][-1] > 0) else 'green')
+    async def pay_split(
+        self,
+        guild_object: discord.Guild,
+        list_of_member_objects: list,
+        split_due_per_share: float,
+        holding: dict,
+        ticker: str,
+    ):
+        holding["amount"] += holding["amount"] * split_due_per_share
+        try:
+            await list_of_member_objects[0].send(
+                f"you have received a {split_due_per_share} split from {ticker}!"
+            )
+        except (discord.Forbidden, discord.NotFound):
+            print(
+                f"Failed to notify user about receiving a split {list_of_member_objects[0].name} in guild {guild_object.name}"
+            )
 
-        plt.title(ticker)
-        plt.ylabel('Price')
-        plt.grid()
+    async def sell(
+        self,
+        ctx: commands.Context,
+        amount_to_sell: int,
+        holding: dict,
+        holdings: list,
+        ticker: str,
+        price: int,
+        currency_name: str,
+    ):
+        holding["amount"] -= amount_to_sell
+        if holding["amount"] == 0:
+            holdings.remove(holding)
 
-        # convert to webp????
-        plt.savefig(const.EMBED_LOCATION, bbox_inches='tight')  # note: saved as .jpg
-        return True
+        current_contribution = await self.config.member(ctx.author).total_contribution()
+        await self.config.member(ctx.author).total_contribution.set(
+            current_contribution - amount_to_sell * price
+        )
 
-    # so messy...
-    async def build_embed(self, ctx, price, ticker, ticker_info):
-        """Builds the embed"""
-        currency_name = " " + await bank.get_currency_name(ctx.guild)
-        quote_type = ticker_info['quoteType']
+        embed = discord.Embed(
+            color=0x00FF00,
+            title=BROKER_NAME,
+            description=f"""You have sold {amount_to_sell}
+                                shares of {ticker} at {price} {currency_name} each,
+                                for a total of {amount_to_sell * price} {currency_name}""",
+        )
 
-        embed = discord.Embed(color=0x424549,
-                              title=const.BROKER_NAME,
-                              description="*\""+const.QUIPS[random.randint(0, len(const.QUIPS) - 1)]+"\"*")
+        old = await bank.get_balance(ctx.author)
+        new = await bank.deposit_credits(ctx.author, amount_to_sell * price)
 
-        embed.add_field(name='Ticker', value=ticker_info['shortName'] + "\n" + ticker, inline=True)
-        embed.add_field(name='Current Price', value=str(price) + currency_name, inline=True)
-        embed.add_field(name='Investment Type', value=quote_type, inline=True)
+        embed.add_field(name="Previous Balance:", value=old)
+        embed.add_field(name="New Balance:", value=new)
+        await ctx.send(embed=embed)
 
-        # "Special" fields
-        if quote_type == 'EQUITY':
-            embed.add_field(name='Sector', value=ticker_info['sector'], inline=True)
-            embed.add_field(name='Industry', value=ticker_info['industry'], inline=True)
+    async def buy(
+        self,
+        ctx: commands.Context,
+        amount_to_buy: int,
+        price: int,
+        ticker: str,
+        sent_message: discord.Message = None,
+    ):
+        new_embed = discord.Embed(
+            color=0x00FF00, title=BROKER_NAME, description="Shares Purchased!"
+        )
+        if sent_message != None:
+            await sent_message.edit(embed=new_embed)
+        else:
+            await ctx.send(embed=new_embed)
+        await bank.withdraw_credits(ctx.author, amount_to_buy * price)
 
-            try:
-                embed.add_field(name='Trailing P/E',
-                                value=f"{ticker_info['trailingPE']:.2f}",
-                                inline=True)
-            except KeyError:
-                embed.add_field(name='Trailing P/E',
-                                value="NaN",
-                                inline=True)
+        # add stock to portfolio
+        previous_contribution = await self.config.member(ctx.author).total_contribution()
+        await self.config.member(ctx.author).total_contribution.set(
+            previous_contribution + amount_to_buy * price
+        )
 
-        elif quote_type == 'ETF':
-            embed.add_field(name='Exchange', value=ticker_info['exchange'], inline=True)
+        async with self.config.member(ctx.author).holdings() as holdings:
+            for holding in holdings:
+                if holding["ticker"] == ticker:
+                    holding["amount"] += amount_to_buy
+                    return
 
-            top_holdings = ''
-            for key in range(0, 3):
-                top_holdings += f"""{ticker_info['holdings'][key]['symbol']}:
-                {ticker_info['holdings'][key]['holdingPercent'] * 100:.2f}%\n"""
-            if top_holdings == '':
-                top_holdings = 'NaN'
-            embed.add_field(name='Top 3 Holdings', value=top_holdings, inline=True)
+            holdings.append(
+                {"ticker": ticker, "amount": amount_to_buy, "initial DOP": time.time()}
+            )
 
-            embed.add_field(name='Assets Under Management', value=ticker_info['totalAssets'])
+    async def check_events(self):
+        """Checks if any events are due and pays them out"""
 
-        embed.add_field(name='Open', value=ticker_info['open'], inline=True)
-        embed.add_field(name='High', value=ticker_info['dayHigh'], inline=True)
-        embed.add_field(name='Low', value=ticker_info['regularMarketDayLow'], inline=True)
+        # Surely there's something better than this
+        all_member_data = await self.config.all_members(guild=None)
+        for singular_guild_id in all_member_data:
+            for singular_member_id in all_member_data[singular_guild_id]:
+                member_dict = all_member_data[singular_guild_id][singular_member_id]
+                for holding in member_dict["holdings"]:
 
-        embed.add_field(name='52-Week Low', value=ticker_info['fiftyTwoWeekLow'], inline=True)
-        embed.add_field(name='52-week high', value=ticker_info['fiftyTwoWeekHigh'], inline=True)
-        embed.add_field(name='Volume', value=ticker_info['volume'], inline=True)
+                    ticker = holding["ticker"]
+                    actions = await self.yf_ticker_actions(ticker)
 
-        embed.set_footer(text='Enter 0 to cancel')
+                    date = str(actions.index[-1])[:-9]
+                    most_recent_unix = time.mktime(
+                        datetime.datetime.strptime(date, "%Y-%m-%d").timetuple()
+                    )
 
-        return embed
+                    current_unix = time.time()
+
+                    # claimable events
+                    if await self.is_event_claimable(
+                        current_unix, most_recent_unix, holding["initial DOP"]
+                    ):
+
+                        # pay out the dividend and/or split
+                        dividend_due_per_share = ceil(actions.iloc[-1][0] * PRICE_MULTIPLIER)
+                        split_due_per_share = actions.iloc[-1][1]
+
+                        shares_owned = holding["amount"]
+
+                        guild_object = self.bot.get_guild(singular_guild_id)
+                        list_of_member_objects = await guild_object.query_members(
+                            user_ids=singular_member_id
+                        )
+
+                        # list_of_member_objects should only contain one member
+                        if list_of_member_objects == None:
+                            continue
+
+                        # pay dividend
+                        if dividend_due_per_share > 0:
+                            await self.pay_dividend(
+                                guild_object,
+                                list_of_member_objects,
+                                dividend_due_per_share,
+                                shares_owned,
+                                ticker,
+                            )
+
+                        # pay split
+                        if split_due_per_share > 0:
+                            await self.pay_split(
+                                guild_object,
+                                list_of_member_objects,
+                                split_due_per_share,
+                                holding,
+                                ticker,
+                            )
+
+                        # for history
+                        await self.log_event(
+                            member_dict,
+                            ticker,
+                            ceil(dividend_due_per_share * shares_owned),
+                            split_due_per_share,
+                        )
