@@ -4,7 +4,7 @@ import os
 MAX_MSG_LENGTH = 1021
 PRICE_MULTIPLIER = 100
 BROKER_NAME = "Ren's Brokerage"
-EMBED_LOCATION = os.path.join('cogs', 'stockmarket', 'chart.jpg')
+EMBED_LOCATION = os.path.join("cogs", "stockmarket", "chart.jpg")
 VALID_PERIODS = ["1d", "5d", "1mo", "3mo", "6mo", "1y", "2y", "5y", "10y", "ytd", "max"]
 VALID_INTERVALS = [
     "1m",
