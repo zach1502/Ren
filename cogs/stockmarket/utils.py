@@ -1,6 +1,5 @@
 from math import ceil
 import random
-import time
 import datetime
 import matplotlib.pyplot as plt
 import yfinance as yf  # pip install yfinance
@@ -8,8 +7,40 @@ import discord
 from datetime import datetime
 
 from redbot.core import bank, commands, Config
+from cogs.stockmarket.constants import (
+    BROKER_NAME,
+    DATE_FORMAT,
+    PRICE_MULTIPLIER,
+    EMBED_LOCATION,
+    VALID_INTERVALS,
+    VALID_PERIODS,
+    TRANSACTION_CANCELLED_STR,
+    QUIPS,
+)
 
-from .constants import *
+
+class MarketExceptions(Exception):
+    """Base class for exceptions for this cog."""
+
+    pass
+
+
+class InvalidInterval(MarketExceptions):
+    """Exception raised for invalid interval."""
+
+    pass
+
+
+class InvalidPeriod(MarketExceptions):
+    """Exception raised for invalid period."""
+
+    pass
+
+
+class NoTickerData(MarketExceptions):
+    """Exception raised for invalid tickers."""
+
+    pass
 
 
 class market_utils:
@@ -48,10 +79,22 @@ class market_utils:
 
     async def get_embed_chart(self, ticker: str, period_str: str = "1d", interval_str: str = "5m"):
         """Gets the chart of the requested stock"""
+
+        if period_str not in VALID_PERIODS:
+            print(f"{period_str} is not in {VALID_PERIODS}")
+            raise InvalidPeriod(period_str)
+
+        if interval_str not in VALID_INTERVALS:
+            print(f"{interval_str} is not in {VALID_INTERVALS}")
+            raise InvalidInterval(interval_str)
+
         plt.clf()
         ticker = ticker.upper()
         # Get the data.. takes like 0.2s
         data = await self.yf_download(ticker, period_str, interval_str)
+
+        if data.empty:
+            raise NoTickerData
 
         if len(data["Close"]) == 0:
             return False
@@ -70,7 +113,7 @@ class market_utils:
     # so messy...
     async def build_embed(self, ctx: commands.Context, price: int, ticker: str, ticker_info: dict):
         """Builds the embed"""
-        currency_name = " " + await bank.get_currency_name(ctx.guild)
+        currency_name = await bank.get_currency_name(ctx.guild)
         quote_type = ticker_info["quoteType"]
 
         embed = discord.Embed(
@@ -80,7 +123,7 @@ class market_utils:
         )
 
         embed.add_field(name="Ticker", value=ticker_info["shortName"] + "\n" + ticker, inline=True)
-        embed.add_field(name="Current Price", value=str(price) + currency_name, inline=True)
+        embed.add_field(name="Current Price", value=str(price) + " " + currency_name, inline=True)
         embed.add_field(name="Investment Type", value=quote_type, inline=True)
 
         # "Special" fields
@@ -120,16 +163,14 @@ class market_utils:
 
         return embed
 
-    async def log_event(
+    def log_event(
         self, member_dict: dict, ticker: str, dividend_due: int, split_due_per_share: float
     ):
         member_dict["transactions"].append(
             {
                 "type": "event",
                 ticker: ticker,
-                "date": datetime.utcfromtimestamp((int)(time.time())).strftime(
-                    "%Y-%m-%d %H:%M:%S"
-                ),
+                "date": datetime.utcnow().strftime(DATE_FORMAT),
                 "dividend_amount": ceil(dividend_due),
                 "split_ratio": split_due_per_share,
             }
@@ -148,9 +189,7 @@ class market_utils:
                 {
                     "type": "sell",
                     "ticker": ticker,
-                    "date": datetime.utcfromtimestamp((int)(time.time())).strftime(
-                        "%Y-%m-%d %H:%M:%S"
-                    ),
+                    "date": datetime.utcnow().strftime(DATE_FORMAT),
                     "shares_sold": amount_to_sell,
                     "sold_price": price,
                     "amount_received": amount_received,
@@ -170,9 +209,7 @@ class market_utils:
                 {
                     "type": "buy",
                     "ticker": ticker,
-                    "date": datetime.utcfromtimestamp((int)(time.time())).strftime(
-                        "%Y-%m-%d %H:%M:%S"
-                    ),
+                    "date": datetime.utcnow().strftime(DATE_FORMAT),
                     "shares_bought": amount_to_buy,
                     "bought_price": price,
                     "amount_spent": amount_spent,

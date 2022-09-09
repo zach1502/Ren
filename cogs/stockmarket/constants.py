@@ -3,13 +3,31 @@
 MAX_MSG_LENGTH = 1021
 PRICE_MULTIPLIER = 100
 BROKER_NAME = "Ren's Brokerage"
-DATA_FILE = "cogs\\stockmarket\\portfolios.json"
 EMBED_LOCATION = "cogs\\stockmarket\\chart.jpg"
+VALID_PERIODS = ["1d", "5d", "1mo", "3mo", "6mo", "1y", "2y", "5y", "10y", "ytd", "max"]
+VALID_INTERVALS = [
+    "1m",
+    "2m",
+    "5m",
+    "15m",
+    "30m",
+    "60m",
+    "90m",
+    "1h",
+    "1d",
+    "5d",
+    "1wk",
+    "1mo",
+    "3mo",
+]
+INVALID_INTERVAL_STR = "Invalid interval. Valid intervals are: " + ", ".join(VALID_INTERVALS)
+INVALID_PERIOD_STR = "Invalid period. Valid periods are: " + ", ".join(VALID_PERIODS)
 TRANSACTION_CANCELLED_STR = "Transaction cancelled!"
 INVALID_TICKER_STR = "Invalid ticker symbol!"
 INVALID_AMOUNT_STR = "Invalid amount!"
+NO_TICKER_DATA_STR = "No data for this ticker, period and interval!\nIf you are trying to get a chart over a large period and a small interval, try using a smaller period or larger interval."
 POOR_STR = "You do not have enough money to buy this stock!"
-ACCOUNT_NOT_FOUND_STR = """No account found! Please create an account using `renmarket createacc`."""  # .format(get prefix somehow)
+DATE_FORMAT = "%Y-%m-%d %H:%M:%S"
 QUIPS = [
     "Ready to Donate your money to Wall Street I see?",
     "AAAAAAAAAAND IT'S GONE!",
